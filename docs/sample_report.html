@@ -1,0 +1,448 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAIM Lab - 수업 분석 리포트</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            padding: 40px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            border: 1px solid #334155;
+        }
+        .logo { font-size: 3rem; margin-bottom: 10px; }
+        h1 { 
+            font-size: 2rem;
+            background: linear-gradient(135deg, #818cf8 0%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle { color: #94a3b8; margin-top: 10px; }
+        
+        .score-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            margin: 40px 0;
+            padding: 40px;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            border: 1px solid #334155;
+        }
+        .score-circle {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5, #4338ca);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 40px rgba(79, 70, 229, 0.4);
+        }
+        .score-value { font-size: 3.5rem; font-weight: 700; }
+        .score-max { color: rgba(255,255,255,0.7); }
+        .grade {
+            font-size: 5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f59e0b, #f97316);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .chart-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 40px 0;
+        }
+        .chart-card {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid #334155;
+        }
+        .chart-card h3 { margin-bottom: 20px; }
+        
+        .dimensions-list {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid #334155;
+            margin: 40px 0;
+        }
+        .dim-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #1e293b;
+            border-radius: 8px;
+        }
+        .dim-name { width: 150px; font-weight: 600; }
+        .dim-bar {
+            flex: 1;
+            height: 12px;
+            background: #334155;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 0 15px;
+        }
+        .dim-fill { height: 100%; border-radius: 6px; transition: width 0.5s; }
+        .dim-score { width: 80px; text-align: right; }
+        
+        .feedback-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 40px 0;
+        }
+        .feedback-card {
+            padding: 25px;
+            border-radius: 16px;
+        }
+        .feedback-card.strengths {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .feedback-card.improvements {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .feedback-card h3 { margin-bottom: 15px; }
+        .feedback-card ul { list-style: none; }
+        .feedback-card li { padding: 8px 0; color: #94a3b8; }
+        
+        .overall-feedback {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 30px;
+            border-left: 4px solid #4f46e5;
+            margin: 40px 0;
+        }
+        
+        .dimension-feedbacks {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid #334155;
+            margin: 40px 0;
+        }
+        .dimension-feedbacks h3 { margin-bottom: 20px; }
+        .dim-feedback-item {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #1e293b;
+            border-radius: 12px;
+            border-left: 4px solid;
+        }
+        .dim-feedback-item h4 {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .dim-feedback-item p {
+            color: #94a3b8;
+            line-height: 1.7;
+            margin: 5px 0;
+        }
+        .dim-score-badge {
+            font-size: 0.85rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(79, 70, 229, 0.2);
+            color: #818cf8;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #64748b;
+            border-top: 1px solid #334155;
+            margin-top: 40px;
+        }
+        
+        @media print {
+            body { background: white; color: black; }
+            .chart-card, .dimensions-list, .feedback-card, .overall-feedback {
+                background: #f8fafc;
+                border-color: #e2e8f0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎓</div>
+            <h1>GAIM Lab 수업 분석 리포트</h1>
+            <p class="subtitle">youtube_demo | 2026년 02월 05일 22:34</p>
+        </div>
+        
+        <div class="score-section">
+            <div class="score-circle">
+                <div class="score-value">60.2</div>
+                <div class="score-max">/100점</div>
+            </div>
+            <div class="grade">D</div>
+        </div>
+        
+        <div class="chart-section">
+            <div class="chart-card">
+                <h3>📊 7차원 역량 분석</h3>
+                <canvas id="radarChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>📈 차원별 달성도</h3>
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="dimensions-list">
+            <h3>📋 상세 점수</h3>
+            
+            <div class="dim-item">
+                <span class="dim-name">수업 전문성</span>
+                <div class="dim-bar">
+                    <div class="dim-fill" style="width: 80.0%; background: #4f46e5;"></div>
+                </div>
+                <span class="dim-score">16/20 (80.0%)</span>
+            </div>
+            
+            <div class="dim-item">
+                <span class="dim-name">교수학습 방법</span>
+                <div class="dim-bar">
+                    <div class="dim-fill" style="width: 85.0%; background: #06b6d4;"></div>
+                </div>
+                <span class="dim-score">17/20 (85.0%)</span>
+            </div>
+            
+            <div class="dim-item">
+                <span class="dim-name">판서 및 언어</span>
+                <div class="dim-bar">
+                    <div class="dim-fill" style="width: 56.7%; background: #10b981;"></div>
+                </div>
+                <span class="dim-score">8.5/15 (56.7%)</span>
+            </div>
+            
+            <div class="dim-item">
+                <span class="dim-name">수업 태도</span>
+                <div class="dim-bar">
+                    <div class="dim-fill" style="width: 18.0%; background: #f59e0b;"></div>
+                </div>
+                <span class="dim-score">2.7/15 (18.0%)</span>
+            </div>
+            
+            <div class="dim-item">
+                <span class="dim-name">학생 참여</span>
+                <div class="dim-bar">
+                    <div class="dim-fill" style="width: 80.0%; background: #ef4444;"></div>
+                </div>
+                <span class="dim-score">12/15 (80.0%)</span>
+            </div>
+            
+            <div class="dim-item">
+                <span class="dim-name">시간 배분</span>
+                <div class="dim-bar">
+                    <div class="dim-fill" style="width: 10.0%; background: #8b5cf6;"></div>
+                </div>
+                <span class="dim-score">1.0/10 (10.0%)</span>
+            </div>
+            
+            <div class="dim-item">
+                <span class="dim-name">창의성</span>
+                <div class="dim-bar">
+                    <div class="dim-fill" style="width: 60.0%; background: #ec4899;"></div>
+                </div>
+                <span class="dim-score">3/5 (60.0%)</span>
+            </div>
+            
+        </div>
+        
+        <div class="feedback-section">
+            <div class="feedback-card strengths">
+                <h3>✅ 강점</h3>
+                <ul>
+                    <li>✅ 교수학습 방법: 85.0%</li><li>✅ 수업 전문성: 80.0%</li>
+                </ul>
+            </div>
+            <div class="feedback-card improvements">
+                <h3>🔧 개선점</h3>
+                <ul>
+                    <li>🔧 수업 태도: 추가 연습 필요</li><li>🔧 시간 배분: 추가 연습 필요</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="overall-feedback">
+            <h3>💬 종합 피드백</h3>
+            <p style="margin-top: 15px; color: #94a3b8; line-height: 1.8;">
+                추가적인 연습이 필요합니다. 60.2점(D)으로 여러 영역에서 개선의 여지가 있습니다. 피드백을 참고하여 반복 연습해 주세요.
+            </p>
+        </div>
+        
+        <div class="dimension-feedbacks">
+            <h3>📝 차원별 상세 피드백</h3>
+            
+            <div class="dim-feedback-item" style="border-color: #4f46e5;">
+                <h4>
+                    <span>📚 수업 전문성</span>
+                    <span class="dim-score-badge">16/20 (80.0%)</span>
+                </h4>
+                <p>• 학습 목표가 '토의를 통해 지구촌 문제의 해결 방법을 탐구해 봅시다'로 명확하게 제시되었고, 국어와 사회 교과를 융합하여 지구촌 문제라는 교육과정 내용을 다루고 있다. 다만, 제시된 문제 해결 방법이 초등학생 수준에서 실질적인 해결이 가능한 범위인지에 대한 고민이 더 필요하다.</p>
+            </div>
+            
+            <div class="dim-feedback-item" style="border-color: #06b6d4;">
+                <h4>
+                    <span>🎯 교수학습 방법</span>
+                    <span class="dim-score-badge">17/20 (85.0%)</span>
+                </h4>
+                <p>• 사진 자료 제시, 모둠 활동, 토의, 발표 등 다양한 교수법을 활용하고 있다. 특히, 학생들의 사전 투표 결과를 바탕으로 모둠을 구성한 점은 학생들의 흥미를 유발하고 참여도를 높일 수 있는 효과적인 방법이다. 다만, 모든 활동이 토의에 집중되어 있어, 활동 유형의 다양성을 조금 더 확보할 필요가 있다.</p>
+            </div>
+            
+            <div class="dim-feedback-item" style="border-color: #10b981;">
+                <h4>
+                    <span>🗣️ 판서 및 언어</span>
+                    <span class="dim-score-badge">8.5/15 (56.7%)</span>
+                </h4>
+                <p>• 기본적인 언어 전달력 보유</p>
+            </div>
+            
+            <div class="dim-feedback-item" style="border-color: #f59e0b;">
+                <h4>
+                    <span>🙋 수업 태도</span>
+                    <span class="dim-score-badge">2.7/15 (18.0%)</span>
+                </h4>
+                <p>• 학생과의 눈맞춤을 더 자주 할 것</p><p>• 제스처를 더 적극적으로 활용할 것</p><p>• 수업에 대한 열정과 자신감을 높일 것</p>
+            </div>
+            
+            <div class="dim-feedback-item" style="border-color: #ef4444;">
+                <h4>
+                    <span>👥 학생 참여</span>
+                    <span class="dim-score-badge">12/15 (80.0%)</span>
+                </h4>
+                <p>• 학생들의 경험과 연관된 질문을 통해 참여를 유도하고, 칭찬과 격려를 통해 긍정적인 피드백을 제공한다. 다만, 학생들의 답변에 대한 심층적인 질문이나 사고를 확장시키는 발문이 부족하다.</p>
+            </div>
+            
+            <div class="dim-feedback-item" style="border-color: #8b5cf6;">
+                <h4>
+                    <span>⏱️ 시간 배분</span>
+                    <span class="dim-score-badge">1.0/10 (10.0%)</span>
+                </h4>
+                <p>• 수업 시간 배분을 더 균형 있게 조절할 것</p><p>• 도입과 정리 시간을 확보할 것</p>
+            </div>
+            
+            <div class="dim-feedback-item" style="border-color: #ec4899;">
+                <h4>
+                    <span>💡 창의성</span>
+                    <span class="dim-score-badge">3/5 (60.0%)</span>
+                </h4>
+                <p>• 학생들의 투표 결과를 활용하여 모둠을 구성하고, 노래를 활용하여 모둠을 만드는 활동은 비교적 창의적이다. 다만, 전반적인 수업 흐름은 일반적인 수업 방식에서 크게 벗어나지 않는다.</p>
+            </div>
+            
+        </div>
+        
+        <div class="footer">
+            <p>GINUE AI Microteaching Lab (GAIM Lab) | 경인교육대학교</p>
+            <p style="margin-top: 5px;">Generated: 2026-02-05T22:34:23.848653</p>
+        </div>
+    </div>
+    
+    <script>
+        // 레이더 차트
+        const radarCtx = document.getElementById('radarChart').getContext('2d');
+        new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: ["수업 전문성", "교수학습 방법", "판서 및 언어", "수업 태도", "학생 참여", "시간 배분", "창의성"],
+                datasets: [{
+                    label: '달성도 (%)',
+                    data: [80.0, 85.0, 56.7, 18.0, 80.0, 10.0, 60.0],
+                    backgroundColor: 'rgba(79, 70, 229, 0.3)',
+                    borderColor: '#818cf8',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#818cf8'
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' },
+                        angleLines: { color: '#334155' },
+                        pointLabels: { color: '#f8fafc', font: { size: 11 } }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+        
+        // 100점 만점 수직 라인 그래프
+        const barCtx = document.getElementById('barChart').getContext('2d');
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: ["수업 전문성", "교수학습 방법", "판서 및 언어", "수업 태도", "학생 참여", "시간 배분", "창의성"],
+                datasets: [{
+                    label: '점수 (100점 환산)',
+                    data: [80.0, 85.0, 56.7, 18.0, 80.0, 10.0, 60.0],
+                    backgroundColor: ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"],
+                    borderRadius: 6,
+                    barThickness: 35
+                }]
+            },
+            options: {
+                indexAxis: 'x',
+                responsive: true,
+                scales: {
+                    x: { 
+                        ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 45, minRotation: 45 }, 
+                        grid: { display: false } 
+                    },
+                    y: { 
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { 
+                            color: '#94a3b8',
+                            stepSize: 20,
+                            callback: function(value) { return value + '점'; }
+                        }, 
+                        grid: { color: '#334155' } 
+                    }
+                },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.raw + '점/100점';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
