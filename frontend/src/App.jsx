@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import Upload from './pages/Upload'
 import Portfolio from './pages/Portfolio'
+import AnalysisResult from './pages/AnalysisResult'
 import './App.css'
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/upload" element={<Upload />} />
                         <Route path="/portfolio" element={<Portfolio />} />
+                        <Route path="/analysis/:analysisId" element={<AnalysisResult />} />
                     </Routes>
                 </main>
                 <footer className="app-footer">

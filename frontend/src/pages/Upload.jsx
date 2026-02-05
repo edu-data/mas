@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import RealtimeFeedback from '../components/RealtimeFeedback'
 import './Upload.css'
 
 function Upload() {
+    const navigate = useNavigate()
     const [file, setFile] = useState(null)
     const [uploading, setUploading] = useState(false)
     const [analysisId, setAnalysisId] = useState(null)
@@ -189,8 +191,13 @@ function Upload() {
                     <p className="feedback">{result.overall_feedback}</p>
 
                     <div className="result-actions">
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => navigate(`/analysis/${analysisId}`)}
+                        >
+                            📊 상세 결과 보기
+                        </button>
                         <button className="btn btn-secondary">📄 리포트 다운로드</button>
-                        <button className="btn btn-primary">📂 포트폴리오에 추가</button>
                     </div>
                 </div>
             )}
