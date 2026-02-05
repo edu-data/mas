@@ -21,6 +21,13 @@ GAIM Lab은 예비교원의 수업 역량을 분석하고 평가하는 AI 기반
 - 🏅 **디지털 배지**: 성취 기반 배지 시스템
 - 📋 **리포트 생성**: HTML/PDF 상세 보고서
 
+### 📊 분석 결과 보고서
+
+| 보고서 | 설명 |
+|--------|------|
+| [📋 종합 평가 보고서](https://edu-data.github.io/GAIM_Lab/comprehensive_report.html) | 18개 영상 배치 분석 결과 |
+| [🌐 GAIM Lab 웹사이트](https://edu-data.github.io/GAIM_Lab/) | 시스템 소개 페이지 |
+
 ## 🏗️ 프로젝트 구조
 
 ```
