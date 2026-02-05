@@ -120,12 +120,6 @@ class GAIMReportGenerator:
             gap: 30px;
             margin: 40px 0;
         }}
-        .chart-card.bar-chart {{
-            min-height: 500px;
-        }}
-        #barChart {{
-            height: 450px !important;
-        }}
         .chart-card {{
             background: rgba(30, 41, 59, 0.8);
             border-radius: 16px;
@@ -264,9 +258,9 @@ class GAIMReportGenerator:
                 <h3>📊 7차원 역량 분석</h3>
                 <canvas id="radarChart"></canvas>
             </div>
-            <div class="chart-card bar-chart">
+            <div class="chart-card">
                 <h3>📈 차원별 달성도</h3>
-                <canvas id="barChart" style="height: 450px;"></canvas>
+                <canvas id="barChart"></canvas>
             </div>
         </div>
         
@@ -372,7 +366,6 @@ class GAIMReportGenerator:
             options: {{
                 indexAxis: 'x',
                 responsive: true,
-                maintainAspectRatio: false,
                 scales: {{
                     x: {{ 
                         ticks: {{ color: '#94a3b8', font: {{ size: 10 }}, maxRotation: 45, minRotation: 45 }}, 
@@ -383,9 +376,6 @@ class GAIMReportGenerator:
                         max: 100,
                         ticks: {{ 
                             color: '#94a3b8',
-                            stepSize: 10,
-                            autoSkip: false,
-                            font: {{ size: 9 }},
                             callback: function(value) {{ return value + '점'; }}
                         }}, 
                         grid: {{ color: '#334155' }} 
