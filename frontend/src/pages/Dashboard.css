@@ -1,0 +1,249 @@
+/* Dashboard Page Styles */
+
+.dashboard {
+    animation: fadeIn 0.5s ease;
+}
+
+.demo-section {
+    margin-top: 2rem;
+}
+
+.demo-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.demo-desc {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.demo-result {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+}
+
+/* Score Card */
+.score-card {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.score-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 30px rgba(79, 70, 229, 0.4);
+}
+
+.score-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.score-max {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.grade-badge {
+    font-size: 3rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent) 0%, #f97316 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Charts */
+.chart-container {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+}
+
+.chart-container h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+/* Feedback */
+.feedback-section {
+    margin-top: 2rem;
+}
+
+.feedback-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.feedback-text {
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    border-left: 4px solid var(--primary);
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.feedback-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.feedback-card {
+    padding: 1rem;
+    border-radius: var(--radius);
+}
+
+.feedback-card h4 {
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.feedback-card ul {
+    list-style: none;
+    padding: 0;
+}
+
+.feedback-card li {
+    padding: 0.5rem 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.feedback-card.strengths {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.feedback-card.improvements {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+@media (max-width: 768px) {
+    .feedback-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .score-card {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .dimension-table {
+        font-size: 0.75rem;
+    }
+}
+
+/* 7차원 평가 테이블 */
+.dimension-table-section {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(10px);
+    border-radius: var(--radius);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dimension-table-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.dimension-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.dimension-table th {
+    padding: 0.75rem;
+    text-align: left;
+    background: rgba(79, 70, 229, 0.2);
+    color: var(--primary-light);
+    font-weight: 600;
+    border-bottom: 2px solid var(--primary);
+}
+
+.dimension-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.dimension-row:hover {
+    background: rgba(79, 70, 229, 0.1);
+}
+
+.dim-name {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dim-icon {
+    font-size: 1.2rem;
+}
+
+.dim-criteria {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.criteria-item {
+    display: inline-block;
+    background: rgba(79, 70, 229, 0.15);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    margin: 0.2rem;
+    font-size: 0.75rem;
+}
+
+.dim-score {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.dim-percentage {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    min-width: 60px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.dim-percentage span {
+    font-weight: 600;
+    min-width: 45px;
+    text-align: right;
+}

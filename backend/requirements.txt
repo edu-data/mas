@@ -1,0 +1,31 @@
+# GAIM Lab Backend Dependencies
+
+# FastAPI 프레임워크
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# 데이터 유효성 검사
+pydantic>=2.5.0
+
+# 비동기 처리
+aiofiles>=23.2.1
+
+# MLC 분석 엔진 의존성
+opencv-python>=4.9.0
+librosa>=0.10.1
+numpy>=1.26.0
+moviepy>=2.0.0
+
+# STT (음성 인식)
+openai-whisper>=20231117
+
+# OCR
+pytesseract>=0.3.10
+
+# 리포트 생성
+jinja2>=3.1.2
+playwright>=1.41.0
+
+# 유틸리티
+python-dotenv>=1.0.0

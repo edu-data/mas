@@ -1,0 +1,58 @@
+# GAIM Lab Backend + Frontend 통합 테스트용 Docker Compose
+# Real E2E (Nightly) 테스트에서 사용
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANALYSIS_TIMEOUT=600
+    volumes:
+      - ../video:/app/videos:ro
+      - test_results:/app/results
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.test
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.40.0-focal
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+      - playwright_results:/app/test-results
+    depends_on:
+      frontend:
+        condition: service_healthy
+    environment:
+      - CI=true
+      - REAL_API_URL=http://backend:8000
+      - BASE_URL=http://frontend:5173
+    command: npx playwright test --project=real --reporter=html
+
+volumes:
+  test_results:
+  playwright_results:
