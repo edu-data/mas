@@ -16,6 +16,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import google.generativeai as genai
 
+# RAG 지식 기반 시스템
+try:
+    from .rag_knowledge_base import get_knowledge_base, EducationKnowledgeBase
+    HAS_RAG = True
+except ImportError:
+    HAS_RAG = False
+
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 if GOOGLE_API_KEY:
@@ -115,10 +122,11 @@ MULTIMODAL_PROMPT = """
 class EnhancedGeminiEvaluator:
     """향상된 멀티모달 Gemini 평가기"""
     
-    def __init__(self, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, model_name: str = "gemini-2.0-flash", enable_rag: bool = True):
         self.model_name = model_name
         self.model = None
         self.vision_model = None
+        self.knowledge_base = None
         
         if GOOGLE_API_KEY:
             try:
@@ -127,6 +135,15 @@ class EnhancedGeminiEvaluator:
                 print(f"✅ Enhanced Gemini 초기화 완료: {model_name}")
             except Exception as e:
                 print(f"❌ Gemini 초기화 실패: {e}")
+        
+        # RAG 지식 기반 초기화
+        if enable_rag and HAS_RAG:
+            try:
+                self.knowledge_base = get_knowledge_base()
+                if self.knowledge_base.is_initialized:
+                    print(f"✅ RAG 지식 기반 연동 완료")
+            except Exception as e:
+                print(f"⚠️ RAG 초기화 실패 (피드백 강화 비활성화): {e}")
     
     def load_frame_as_base64(self, frame_path: Path) -> Optional[str]:
         """프레임을 base64로 로드"""
@@ -281,14 +298,38 @@ class EnhancedGeminiEvaluator:
             if "제스처_분석" in dim_data:
                 feedback.append(f"제스처: {dim_data['제스처_분석']}")
             
+            # RAG 기반 피드백 강화
+            percentage = round((score / max_score) * 100, 1) if max_score > 0 else 0
+            theory_refs = []
+            improvement_tips = []
+            
+            if self.knowledge_base and self.knowledge_base.is_initialized:
+                try:
+                    raw_feedback = dim_data.get("근거", "")
+                    enhanced = self.knowledge_base.enhance_feedback(
+                        dimension_name=name,
+                        raw_feedback=raw_feedback,
+                        score_percentage=percentage
+                    )
+                    theory_refs = enhanced.get("theory_references", [])
+                    improvement_tips = enhanced.get("improvement_tips", [])
+                    
+                    # 70% 미만일 때 개선 제안 추가
+                    if percentage < 70 and improvement_tips:
+                        feedback.append(f"💡 {improvement_tips[0]}")
+                except Exception as e:
+                    pass  # RAG 실패 시 기본 피드백 유지
+            
             dimensions.append({
                 "name": name,
                 "score": score,
                 "max_score": max_score,
-                "percentage": round((score / max_score) * 100, 1) if max_score > 0 else 0,
+                "percentage": percentage,
                 "criteria": criteria,
                 "feedback": [f for f in feedback if f],
-                "confidence": dim_data.get("신뢰도", 0.8)
+                "confidence": dim_data.get("신뢰도", 0.8),
+                "theory_references": theory_refs,
+                "improvement_tips": improvement_tips
             })
         
         # 강점/개선점 포맷

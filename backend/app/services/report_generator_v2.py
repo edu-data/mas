@@ -725,6 +725,28 @@ class GAIMReportGeneratorV2:
                 else:
                     improvements_html = '<div class="dim-feedback-box improvements"><p>🔧 이 영역에 집중적인 연습이 필요합니다.</p></div>'
             
+            # 교육학 이론 참조 HTML (RAG 기반)
+            theory_html = ""
+            theory_refs = d.get("theory_references", [])
+            if theory_refs:
+                theory_content = "<br>".join([f"• {ref[:150]}..." if len(ref) > 150 else f"• {ref}" for ref in theory_refs[:2]])
+                theory_html = f'''
+                <div class="theory-reference">
+                    <h5>📖 교육학적 근거</h5>
+                    <p>{theory_content}</p>
+                </div>'''
+            
+            # 추가 개선 팁 HTML
+            tips_html = ""
+            improvement_tips = d.get("improvement_tips", [])
+            if improvement_tips and percentage < 70:
+                tips_content = "</li><li>".join(improvement_tips[:2])
+                tips_html = f'''
+                <div class="improvement-tips">
+                    <h5>💡 개선 제안</h5>
+                    <ul><li>{tips_content}</li></ul>
+                </div>'''
+            
             items += f'''
             <div class="criteria-card dim-feedback-card" style="border-color: {color}; margin-bottom: 20px;">
                 <h4>{icon} {d["name"]} 
@@ -736,6 +758,8 @@ class GAIMReportGeneratorV2:
                     {strengths_html}
                     {improvements_html}
                 </div>
+                {theory_html}
+                {tips_html}
             </div>'''
         
         return f'''
@@ -778,6 +802,50 @@ class GAIMReportGeneratorV2:
                 border-radius: 20px;
                 font-size: 0.85rem;
                 margin-left: 10px;
+            }}
+            .theory-reference {{
+                margin-top: 15px;
+                padding: 15px;
+                background: rgba(139, 92, 246, 0.1);
+                border: 1px solid rgba(139, 92, 246, 0.2);
+                border-radius: 10px;
+            }}
+            .theory-reference h5 {{
+                color: #a78bfa;
+                margin-bottom: 8px;
+                font-size: 0.9rem;
+            }}
+            .theory-reference p {{
+                color: #94a3b8;
+                font-size: 0.85rem;
+                line-height: 1.6;
+            }}
+            .improvement-tips {{
+                margin-top: 15px;
+                padding: 15px;
+                background: rgba(6, 182, 212, 0.1);
+                border: 1px solid rgba(6, 182, 212, 0.2);
+                border-radius: 10px;
+            }}
+            .improvement-tips h5 {{
+                color: #22d3ee;
+                margin-bottom: 8px;
+                font-size: 0.9rem;
+            }}
+            .improvement-tips ul {{
+                list-style: none;
+                margin: 0;
+                padding: 0;
+            }}
+            .improvement-tips li {{
+                padding: 5px 0;
+                color: #94a3b8;
+                font-size: 0.85rem;
+                line-height: 1.6;
+            }}
+            .improvement-tips li::before {{
+                content: "→ ";
+                color: #22d3ee;
             }}
             @media (max-width: 768px) {{
                 .dim-feedback-grid {{ grid-template-columns: 1fr; }}
