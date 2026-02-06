@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAIM Lab 배치 분석 결과 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 30px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .header p { color: #a0a0a0; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.08);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-value {
+            font-size: 3rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-label { color: #a0a0a0; margin-top: 10px; }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            background: rgba(255,255,255,0.08);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .chart-card h3 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        .chart-container { position: relative; height: 300px; }
+        .table-container {
+            background: rgba(255,255,255,0.08);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow-x: auto;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th { color: #667eea; font-weight: 600; }
+        tr:hover { background: rgba(255,255,255,0.05); }
+        .grade-A { color: #4CAF50; font-weight: bold; }
+        .grade-B { color: #2196F3; font-weight: bold; }
+        .grade-C { color: #FFC107; font-weight: bold; }
+        .grade-D { color: #FF5722; font-weight: bold; }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎓 GAIM Lab 배치 분석 결과</h1>
+        <p>18개 강의 영상 7차원 평가 대시보드 | 생성일: 2026-02-06 20:58</p>
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">18</div>
+            <div class="stat-label">📹 분석 영상 수</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">77.1</div>
+            <div class="stat-label">📊 평균 점수</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">84</div>
+            <div class="stat-label">🏆 최고 점수</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">68</div>
+            <div class="stat-label">📉 최저 점수</div>
+        </div>
+    </div>
+    
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>📈 영상별 총점 분포</h3>
+            <div class="chart-container">
+                <canvas id="scoreChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>🎯 등급 분포</h3>
+            <div class="chart-container">
+                <canvas id="gradeChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>📊 차원별 평균 점수</h3>
+            <div class="chart-container">
+                <canvas id="dimensionChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>🕸️ 차원별 성취율 (레이더 차트)</h3>
+            <div class="chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <h3 style="color: #667eea; margin-bottom: 20px;">📋 영상별 상세 결과</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>영상</th>
+                    <th>총점</th>
+                    <th>등급</th>
+                    <th>수업전문성</th>
+                    <th>교수학습</th>
+                    <th>의사소통</th>
+                    <th>수업태도</th>
+                    <th>학생참여</th>
+                    <th>시간배분</th>
+                    <th>창의성</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>20251209_110545</td>
+                    <td><strong>84</strong></td>
+                    <td class="grade-A">A</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>13/15</td>
+                    <td>14/15</td>
+                    <td>12/15</td>
+                    <td>8/10</td>
+                    <td>4/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_102400</td>
+                    <td><strong>81</strong></td>
+                    <td class="grade-A">A</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>11/15</td>
+                    <td>8/10</td>
+                    <td>4/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_151036</td>
+                    <td><strong>81</strong></td>
+                    <td class="grade-A">A</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>12/15</td>
+                    <td>14/15</td>
+                    <td>12/15</td>
+                    <td>8/10</td>
+                    <td>2/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_160036</td>
+                    <td><strong>81</strong></td>
+                    <td class="grade-A">A</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>12/15</td>
+                    <td>7/10</td>
+                    <td>4/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_161202</td>
+                    <td><strong>81</strong></td>
+                    <td class="grade-A">A</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>12/15</td>
+                    <td>7/10</td>
+                    <td>4/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_143455</td>
+                    <td><strong>80</strong></td>
+                    <td class="grade-A">A</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>11/15</td>
+                    <td>8/10</td>
+                    <td>3/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_154506</td>
+                    <td><strong>80</strong></td>
+                    <td class="grade-A">A</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>12/15</td>
+                    <td>14/15</td>
+                    <td>11/15</td>
+                    <td>7/10</td>
+                    <td>3/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_105229</td>
+                    <td><strong>79</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>16/20</td>
+                    <td>15/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>12/15</td>
+                    <td>8/10</td>
+                    <td>3/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_141700</td>
+                    <td><strong>79</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>12/15</td>
+                    <td>11/15</td>
+                    <td>12/15</td>
+                    <td>7/10</td>
+                    <td>4/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_151833</td>
+                    <td><strong>79</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>17/20</td>
+                    <td>16/20</td>
+                    <td>10/15</td>
+                    <td>13/15</td>
+                    <td>12/15</td>
+                    <td>8/10</td>
+                    <td>3/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_104016</td>
+                    <td><strong>78</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>16/20</td>
+                    <td>15/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>12/15</td>
+                    <td>7/10</td>
+                    <td>3/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_144436</td>
+                    <td><strong>76</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>16/20</td>
+                    <td>15/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>10/15</td>
+                    <td>7/10</td>
+                    <td>3/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_152725</td>
+                    <td><strong>76</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>16/20</td>
+                    <td>15/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>11/15</td>
+                    <td>6/10</td>
+                    <td>3/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_150303</td>
+                    <td><strong>73</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>16/20</td>
+                    <td>15/20</td>
+                    <td>12/15</td>
+                    <td>11/15</td>
+                    <td>10/15</td>
+                    <td>7/10</td>
+                    <td>2/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_140629</td>
+                    <td><strong>72</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>15/20</td>
+                    <td>14/20</td>
+                    <td>12/15</td>
+                    <td>13/15</td>
+                    <td>8/15</td>
+                    <td>7/10</td>
+                    <td>3/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_153522</td>
+                    <td><strong>72</strong></td>
+                    <td class="grade-B">B</td>
+                    <td>13/20</td>
+                    <td>15/20</td>
+                    <td>11/15</td>
+                    <td>13/15</td>
+                    <td>9/15</td>
+                    <td>7/10</td>
+                    <td>4/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_100926</td>
+                    <td><strong>68</strong></td>
+                    <td class="grade-C">C</td>
+                    <td>16/20</td>
+                    <td>14/20</td>
+                    <td>8/15</td>
+                    <td>13/15</td>
+                    <td>10/15</td>
+                    <td>5/10</td>
+                    <td>2/5</td>
+                </tr>
+                <tr>
+                    <td>20251209_142648</td>
+                    <td><strong>68</strong></td>
+                    <td class="grade-C">C</td>
+                    <td>15/20</td>
+                    <td>14/20</td>
+                    <td>10/15</td>
+                    <td>12/15</td>
+                    <td>9/15</td>
+                    <td>6/10</td>
+                    <td>2/5</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        <p>🔬 GAIM Lab - Gemini AI 기반 수업 분석 시스템</p>
+    </div>
+    
+    <script>
+        // 영상별 점수 차트
+        const scoreCtx = document.getElementById('scoreChart').getContext('2d');
+        new Chart(scoreCtx, {
+            type: 'bar',
+            data: {
+                labels: ["20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209"],
+                datasets: [{
+                    label: '총점',
+                    data: [84, 81, 81, 81, 81, 80, 80, 79, 79, 79, 78, 76, 76, 73, 72, 72, 68, 68],
+                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#a0a0a0' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#a0a0a0', maxRotation: 45 }
+                    }
+                }
+            }
+        });
+        
+        // 등급 분포 파이 차트
+        const gradeCtx = document.getElementById('gradeChart').getContext('2d');
+        new Chart(gradeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['A등급', 'B등급', 'C등급'],
+                datasets: [{
+                    data: [7, 9, 2],
+                    backgroundColor: ['#4CAF50', '#2196F3', '#FFC107'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#fff' }
+                    }
+                }
+            }
+        });
+        
+        // 차원별 평균 점수 차트
+        const dimCtx = document.getElementById('dimensionChart').getContext('2d');
+        new Chart(dimCtx, {
+            type: 'bar',
+            data: {
+                labels: ["\uc218\uc5c5 \uc804\ubb38\uc131", "\uad50\uc218\ud559\uc2b5 \ubc29\ubc95", "\ud310\uc11c \ubc0f \uc5b8\uc5b4", "\uc218\uc5c5 \ud0dc\ub3c4", "\ud559\uc0dd \ucc38\uc5ec", "\uc2dc\uac04 \ubc30\ubd84", "\ucc3d\uc758\uc131"],
+                datasets: [{
+                    label: '평균 점수',
+                    data: [16.2, 15.3, 11.6, 12.9, 10.9, 7.1, 3.1],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)',
+                        'rgba(255, 159, 64, 0.6)',
+                        'rgba(199, 199, 199, 0.6)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#a0a0a0' }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: '#a0a0a0' }
+                    }
+                }
+            }
+        });
+        
+        // 레이더 차트 (차원별 성취율)
+        const radarCtx = document.getElementById('radarChart').getContext('2d');
+        new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: ["\uc218\uc5c5 \uc804\ubb38\uc131", "\uad50\uc218\ud559\uc2b5 \ubc29\ubc95", "\ud310\uc11c \ubc0f \uc5b8\uc5b4", "\uc218\uc5c5 \ud0dc\ub3c4", "\ud559\uc0dd \ucc38\uc5ec", "\uc2dc\uac04 \ubc30\ubd84", "\ucc3d\uc758\uc131"],
+                datasets: [{
+                    label: '평균 성취율 (%)',
+                    data: [81.1, 76.7, 77.0, 85.9, 72.6, 71.1, 62.2],
+                    backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(102, 126, 234, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#fff' }
+                    }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { color: '#a0a0a0', backdropColor: 'transparent' },
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        pointLabels: { color: '#fff' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
