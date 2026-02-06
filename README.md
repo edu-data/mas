@@ -15,6 +15,7 @@
 |--------|------|
 | [📊 배치 분석 대시보드](https://edu-data.github.io/GAIM_Lab/batch_dashboard.html) | 18개 영상 시각화 대시보드 (점수분포, 등급, 레이더차트) |
 | [🏆 최고 점수 리포트 (84점)](https://edu-data.github.io/GAIM_Lab/best_report_110545.html) | 20251209_110545 영상 상세 분석 리포트 |
+| [📈 FIAS 분석 대시보드](https://edu-data.github.io/GAIM_Lab/fias-dashboard.html) | Flanders 상호작용 분석 시스템 대시보드 |
 | [🚀 V2 분석 리포트](https://edu-data.github.io/GAIM_Lab/report_v2.html) | 차트 + 타임라인 + AI팁 + QR코드 |
 | [📋 종합 평가 보고서](https://edu-data.github.io/GAIM_Lab/comprehensive_report.html) | 2025-12-09 수업 시연 18개 영상 분석 |
 | [📝 샘플 분석 리포트](https://edu-data.github.io/GAIM_Lab/sample_report.html) | 7차원 평가 + Gemini 상세 피드백 예시 |

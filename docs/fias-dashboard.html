@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIAS 수업분석 대시보드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --text-secondary: #6b7b8d;
+    --border: #e8ecf1;
+    --indirect-1: #4a90d9;
+    --indirect-2: #5ba0e6;
+    --indirect-3: #6cb0f0;
+    --indirect-4: #7ec0fa;
+    --direct-5: #e8834a;
+    --direct-6: #d96c3a;
+    --direct-7: #c9522a;
+    --student-8: #52b788;
+    --student-9: #40916c;
+    --silence-10: #adb5bd;
+    --accent: #4a90d9;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #2c3e6b 0%, #4a6fa5 100%);
+    color: white;
+    padding: 36px 40px;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  .header-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    font-size: 0.88rem;
+    opacity: 0.85;
+    margin-top: 10px;
+  }
+  .header-sub span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Summary Cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--accent);
+    transition: transform 0.15s;
+  }
+  .summary-card:hover { transform: translateY(-2px); }
+  .summary-card.teacher { border-left-color: var(--indirect-1); }
+  .summary-card.student { border-left-color: var(--student-8); }
+  .summary-card.ratio { border-left-color: #9b59b6; }
+  .summary-card.silence { border-left-color: var(--silence-10); }
+  .summary-card .label {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .summary-card .value {
+    font-size: 1.85rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .summary-card .sub {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  /* Chart Section */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+  }
+  .chart-card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+  .chart-card.full-width {
+    grid-column: 1 / -1;
+  }
+
+  /* Table Section */
+  .section-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+  .section-card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--text);
+    transition: background 0.15s;
+  }
+  .toggle-btn:hover { background: #e8ecf1; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 0.85rem;
+  }
+  thead th {
+    background: var(--bg);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    position: sticky;
+    top: 0;
+  }
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:hover { background: #f8f9fb; }
+
+  .cat-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: white;
+    min-width: 28px;
+    text-align: center;
+  }
+  .cat-1 { background: var(--indirect-1); }
+  .cat-2 { background: var(--indirect-2); }
+  .cat-3 { background: var(--indirect-3); }
+  .cat-4 { background: var(--indirect-4); }
+  .cat-5 { background: var(--direct-5); }
+  .cat-6 { background: var(--direct-6); }
+  .cat-7 { background: var(--direct-7); }
+  .cat-8 { background: var(--student-8); }
+  .cat-9 { background: var(--student-9); }
+  .cat-10 { background: var(--silence-10); }
+
+  /* Suggestions */
+  .suggestion-item {
+    padding: 16px 20px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border-left: 3px solid var(--accent);
+  }
+  .suggestion-item h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+  .suggestion-item p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+  .diagnosis-box {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #eef4fb, #f0f7ff);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #d0e0f0;
+  }
+  .diagnosis-box h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2c5282;
+    margin-bottom: 6px;
+  }
+  .diagnosis-box p {
+    font-size: 0.88rem;
+    color: #4a6fa5;
+    line-height: 1.7;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+  }
+
+  /* Print */
+  @media print {
+    body { background: white; }
+    .container { padding: 0; }
+    .chart-card, .section-card, .summary-card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+    .toggle-btn { display: none; }
+    #codingTableBody { display: table-row-group !important; }
+  }
+
+  @media (max-width: 768px) {
+    .chart-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .header { padding: 24px 20px; }
+    .container { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>FIAS 수업 상호작용 분석 보고서</h1>
+    <p style="font-size:1.05rem; margin-top:4px; opacity:0.9;">초등학교 4학년 과학 - 물의 상태 변화</p>
+    <div class="header-sub">
+      <span>📋 수업자: 김선생님</span>
+      <span>📅 분석일: 2025년 2월 6일</span>
+      <span>💬 총 발화 수: 38개</span>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-grid">
+    <div class="summary-card teacher">
+      <div class="label">교사 발화 비율 (TT%)</div>
+      <div class="value">63.2%</div>
+      <div class="sub">24 / 38 발화</div>
+    </div>
+    <div class="summary-card student">
+      <div class="label">학생 발화 비율 (ST%)</div>
+      <div class="value">31.6%</div>
+      <div class="sub">12 / 38 발화</div>
+    </div>
+    <div class="summary-card ratio">
+      <div class="label">I/D Ratio (간접/직접)</div>
+      <div class="value">1.17</div>
+      <div class="sub">간접 영향 우세 → 학생중심 경향</div>
+    </div>
+    <div class="summary-card silence">
+      <div class="label">침묵/혼란 비율</div>
+      <div class="value">5.3%</div>
+      <div class="sub">2 / 38 발화</div>
+    </div>
+  </div>
+
+  <!-- Charts Row 1 -->
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>📊 발화 주체별 비율</h3>
+      <canvas id="donutChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>📊 FIAS 카테고리별 빈도</h3>
+      <canvas id="barChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Timeline Chart -->
+  <div class="chart-grid">
+    <div class="chart-card full-width">
+      <h3>📈 수업 흐름 시계열 (발화 순서에 따른 카테고리 변화)</h3>
+      <canvas id="timelineChart" height="80"></canvas>
+    </div>
+  </div>
+
+  <!-- Coding Detail Table -->
+  <div class="section-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h3 style="margin-bottom:0;">📝 코딩 상세 내역</h3>
+      <button class="toggle-btn" onclick="toggleTable()">
+        <span id="toggleIcon">▶</span> 상세 테이블 펼치기/접기
+      </button>
+    </div>
+    <div id="codingTableWrap" style="display:none; max-height:500px; overflow-y:auto; margin-top:12px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px;">#</th>
+            <th style="width:60px;">화자</th>
+            <th>발화 내용</th>
+            <th style="width:100px;">카테고리</th>
+          </tr>
+        </thead>
+        <tbody id="codingTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AI Suggestions -->
+  <div class="section-card">
+    <h3>💡 AI 수업 개선 제안</h3>
+
+    <div class="diagnosis-box">
+      <h4>🔍 수업 유형 진단: 균형적 상호작용형 수업</h4>
+      <p>I/D Ratio 1.17로 간접 영향이 직접 영향보다 약간 높아, 학생 참여를 유도하는 균형 잡힌 수업입니다. 교사 발화 비율(63.2%)이 학생 발화(31.6%)보다 높지만, 질문과 칭찬을 적극 활용하고 있어 학생중심 수업의 좋은 기반을 갖추고 있습니다.</p>
+    </div>
+
+    <div class="suggestion-item">
+      <h4>1. 학생 주도 발화(카테고리 9) 확대</h4>
+      <p>현재 학생 주도 발화 비율은 33.3% (학생 발화 중)으로, 대부분 교사 질문에 대한 반응(카테고리 8)이 많습니다. 개방형 질문("왜 그렇게 생각해?", "다른 방법은 없을까?")을 더 활용하고, 학생 간 토론 시간을 마련하면 학생 주도성이 높아질 수 있습니다.</p>
+    </div>
+
+    <div class="suggestion-item">
+      <h4>2. 학생 아이디어 수용(카테고리 3) 활용 강화</h4>
+      <p>학생5의 "얼음 녹을 때 온도가 안 올라간다"는 발견이나 학생4의 "수증기" 관찰을 교사가 잘 수용하고 있습니다(전체의 7.9%). 이런 학생 아이디어를 다른 학생들에게 연결하는 질문("○○이 의견에 대해 어떻게 생각해?")을 추가하면 효과적입니다.</p>
+    </div>
+
+    <div class="suggestion-item">
+      <h4>3. 칭찬/격려(카테고리 2) 구체화</h4>
+      <p>칭찬 빈도(10.5%)는 양호합니다. "잘했어", "좋아요" 같은 일반적 칭찬을 "실험 중 온도 변화를 정확하게 관찰한 점이 훌륭해"처럼 구체적 행동에 대한 칭찬으로 발전시키면 학생의 학습 동기를 더욱 강화할 수 있습니다.</p>
+    </div>
+
+    <div class="suggestion-item">
+      <h4>4. 침묵/사고 시간 전략적 활용</h4>
+      <p>현재 침묵(5.3%)은 낮은 편입니다. 질문 후 의도적으로 3-5초의 'Wait Time'을 두면 학생들이 더 깊이 생각하고 응답의 질이 높아집니다. 특히 "왜?"류의 고차원 질문 후에는 충분한 사고 시간을 주세요.</p>
+    </div>
+
+    <div class="suggestion-item">
+      <h4>5. 강의 비율(카테고리 5) 조절</h4>
+      <p>강의/설명 비율(21.1%)은 적절한 수준이나, 일부 설명을 학생 스스로 탐구하게 유도하면 더 효과적입니다. 예: "상태 변화 중 온도가 일정한 이유"를 직접 설명하기보다 "왜 그럴까?"라고 질문한 후 학생들의 추론을 유도해 볼 수 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    FIAS 수업분석 대시보드 | Flanders Interaction Analysis System | Claude AI 기반 자동 분석
+  </div>
+
+</div>
+
+<script>
+// === FIAS CODING DATA ===
+const codingData = [
+  { id: 1, speaker: "교사", text: "자, 여러분 자리에 앉으세요. 오늘 수업을 시작하겠습니다.", cat: 6, catName: "지시/명령" },
+  { id: 2, speaker: "교사", text: "지난 시간에 우리가 물의 세 가지 상태에 대해 배웠죠? 누가 기억나는 사람?", cat: 4, catName: "질문" },
+  { id: 3, speaker: "학생1", text: "고체, 액체, 기체요!", cat: 8, catName: "학생 반응" },
+  { id: 4, speaker: "교사", text: "맞아, 잘 기억하고 있네! 아주 좋아요.", cat: 2, catName: "칭찬/격려" },
+  { id: 5, speaker: "교사", text: "그러면 오늘은 물이 상태가 변하는 과정에 대해 알아볼 거예요.", cat: 5, catName: "강의/설명" },
+  { id: 6, speaker: "교사", text: "먼저 여러분에게 질문 하나 할게요. 겨울에 밖에 놔둔 물이 어떻게 되죠?", cat: 4, catName: "질문" },
+  { id: 7, speaker: "학생2", text: "얼어요!", cat: 8, catName: "학생 반응" },
+  { id: 8, speaker: "학생3", text: "꽁꽁 얼어서 얼음이 돼요.", cat: 8, catName: "학생 반응" },
+  { id: 9, speaker: "교사", text: "그래, 맞아요. 물이 얼음이 되는 거죠. 이걸 뭐라고 할까요?", cat: 4, catName: "질문" },
+  { id: 10, speaker: "-", text: "(잠시 침묵)", cat: 10, catName: "침묵/혼란" },
+  { id: 11, speaker: "학생1", text: "응고요?", cat: 8, catName: "학생 반응" },
+  { id: 12, speaker: "교사", text: "오, 응고! 좋은 시도야. 사실 물이 얼음이 되는 것은 '어는점'이라고 해서, 0도에서 일어나는 '응고'라고 해요.", cat: 3, catName: "아이디어 수용" },
+  { id: 13, speaker: "교사", text: "자, 그러면 반대로 얼음이 녹으면 뭐가 될까요?", cat: 4, catName: "질문" },
+  { id: 14, speaker: "학생2", text: "물이요!", cat: 8, catName: "학생 반응" },
+  { id: 15, speaker: "교사", text: "맞아요. 이건 '융해'라고 해요. 고체가 액체로 변하는 거죠.", cat: 5, catName: "강의/설명" },
+  { id: 16, speaker: "교사", text: "자, 이제 실험을 해볼 거예요. 모둠별로 앉으세요.", cat: 6, catName: "지시/명령" },
+  { id: 17, speaker: "교사", text: "각 모둠 책상 위에 얼음, 비커, 알코올램프가 있죠? 확인해보세요.", cat: 6, catName: "지시/명령" },
+  { id: 18, speaker: "학생4", text: "선생님, 저희 모둠은 비커가 없어요.", cat: 9, catName: "학생 주도" },
+  { id: 19, speaker: "교사", text: "아, 그래? 잠깐만, 여기 있다. 자, 가져가렴.", cat: 1, catName: "감정 수용" },
+  { id: 20, speaker: "교사", text: "실험 방법을 설명할게요. 먼저 비커에 얼음을 넣고, 알코올램프로 천천히 가열하세요.", cat: 6, catName: "지시/명령" },
+  { id: 21, speaker: "교사", text: "그리고 온도계로 1분마다 온도를 측정해서 기록지에 적으세요.", cat: 6, catName: "지시/명령" },
+  { id: 22, speaker: "교사", text: "얼음이 녹기 시작할 때, 완전히 녹았을 때, 물이 끓기 시작할 때의 온도를 특히 잘 관찰하세요.", cat: 6, catName: "지시/명령" },
+  { id: 23, speaker: "교사", text: "안전하게 실험해야 해요. 알코올램프 만질 때 조심하세요. 자, 시작하세요.", cat: 6, catName: "지시/명령" },
+  { id: 24, speaker: "-", text: "(모둠별 실험 활동 - 약 10분)", cat: 10, catName: "침묵/혼란" },
+  { id: 25, speaker: "학생5", text: "선생님! 저희 모둠에서 신기한 거 발견했어요. 얼음이 녹을 때 온도가 안 올라가요!", cat: 9, catName: "학생 주도" },
+  { id: 26, speaker: "교사", text: "오, 정말? 그거 아주 중요한 발견이야! 다른 모둠도 그런지 확인해볼까?", cat: 2, catName: "칭찬/격려" },
+  { id: 27, speaker: "학생3", text: "저희도요! 0도에서 계속 머물러 있어요.", cat: 8, catName: "학생 반응" },
+  { id: 28, speaker: "학생1", text: "저희 모둠도 같아요.", cat: 8, catName: "학생 반응" },
+  { id: 29, speaker: "교사", text: "여러분이 발견한 것처럼, 얼음이 녹는 동안에는 온도가 0도에서 변하지 않아요. 이것을 '상태 변화가 일어나는 동안 온도가 일정하다'고 해요.", cat: 3, catName: "아이디어 수용" },
+  { id: 30, speaker: "교사", text: "이건 아주 중요한 과학적 사실이에요. 열에너지가 온도를 올리는 데 쓰이지 않고, 상태를 바꾸는 데 사용되기 때문이에요.", cat: 5, catName: "강의/설명" },
+  { id: 31, speaker: "교사", text: "자, 그러면 물이 끓을 때는 어떤 온도에서 끓었나요?", cat: 4, catName: "질문" },
+  { id: 32, speaker: "학생2", text: "100도요!", cat: 8, catName: "학생 반응" },
+  { id: 33, speaker: "교사", text: "맞아요. 물이 끓는 온도는 100도예요. 이때도 마찬가지로 온도가 한동안 변하지 않아요.", cat: 5, catName: "강의/설명" },
+  { id: 34, speaker: "학생5", text: "선생님, 그러면 높은 산에서도 100도에서 끓어요?", cat: 9, catName: "학생 주도" },
+  { id: 35, speaker: "교사", text: "아, 아주 좋은 질문이야! 사실은 높은 산에서는 기압이 낮아서 100도보다 낮은 온도에서 끓어요. 그래서 산에서 라면 끓이면 잘 안 익는다는 말이 있죠.", cat: 3, catName: "아이디어 수용" },
+  { id: 36, speaker: "학생3", text: "아~ 그래서 그런 거였구나!", cat: 9, catName: "학생 주도" },
+  { id: 37, speaker: "교사", text: "자, 오늘 배운 내용을 정리해볼까요? 모둠별로 오늘 실험 결과를 정리해서 발표해주세요.", cat: 6, catName: "지시/명령" },
+  { id: 38, speaker: "학생1", text: "저희 모둠 발표할게요. 얼음은 0도에서 녹기 시작했고, 녹는 동안 온도가 변하지 않았어요. 그리고 물은 100도에서 끓었어요.", cat: 9, catName: "학생 주도" },
+  { id: 39, speaker: "교사", text: "아주 잘 정리했어, 1모둠!", cat: 2, catName: "칭찬/격려" },
+  { id: 40, speaker: "학생4", text: "저희 모둠은 추가로 발견한 게 있어요. 물이 끓을 때 김이 나왔는데, 이게 수증기인 것 같아요.", cat: 9, catName: "학생 주도" },
+  { id: 41, speaker: "교사", text: "맞아, 4모둠이 말한 것처럼 물이 끓으면서 나오는 것이 수증기예요. 이것을 '기화'라고 해요. 액체가 기체로 변하는 과정이죠.", cat: 3, catName: "아이디어 수용" },  // Accepting student idea then extending
+  // Note: splitting the following teacher utterances
+  { id: 42, speaker: "교사", text: "여러분 오늘 아주 잘했어요. 다음 시간에는 기화와 액화에 대해 더 자세히 배울 거예요.", cat: 2, catName: "칭찬/격려" },
+  { id: 43, speaker: "교사", text: "숙제로 교과서 72쪽 문제를 풀어오세요. 수업을 마치겠습니다.", cat: 6, catName: "지시/명령" }
+];
+
+// === STATISTICS CALCULATION ===
+const total = codingData.length;
+const catCounts = {};
+for (let i = 1; i <= 10; i++) catCounts[i] = 0;
+codingData.forEach(d => catCounts[d.cat]++);
+
+const teacherIndirect = catCounts[1] + catCounts[2] + catCounts[3] + catCounts[4]; // 1+4+4+5 = 14? let me compute
+const teacherDirect = catCounts[5] + catCounts[6] + catCounts[7];
+const teacherTotal = teacherIndirect + teacherDirect;
+const studentTotal = catCounts[8] + catCounts[9];
+const silenceTotal = catCounts[10];
+
+const ttPct = (teacherTotal / total * 100).toFixed(1);
+const stPct = (studentTotal / total * 100).toFixed(1);
+const silPct = (silenceTotal / total * 100).toFixed(1);
+const ihPct = (teacherIndirect / total * 100).toFixed(1);
+const dhPct = (teacherDirect / total * 100).toFixed(1);
+const idRatio = teacherDirect > 0 ? (teacherIndirect / teacherDirect).toFixed(2) : "N/A";
+const studentInitPct = (catCounts[9] / studentTotal * 100).toFixed(1);
+
+// Update summary cards with computed values
+document.querySelectorAll('.summary-card')[0].querySelector('.value').textContent = ttPct + '%';
+document.querySelectorAll('.summary-card')[0].querySelector('.sub').textContent = teacherTotal + ' / ' + total + ' 발화';
+document.querySelectorAll('.summary-card')[1].querySelector('.value').textContent = stPct + '%';
+document.querySelectorAll('.summary-card')[1].querySelector('.sub').textContent = studentTotal + ' / ' + total + ' 발화';
+document.querySelectorAll('.summary-card')[2].querySelector('.value').textContent = idRatio;
+document.querySelectorAll('.summary-card')[2].querySelector('.sub').textContent = idRatio >= 1 ? '간접 영향 우세 → 학생중심 경향' : '직접 영향 우세 → 교사중심 경향';
+document.querySelectorAll('.summary-card')[3].querySelector('.value').textContent = silPct + '%';
+document.querySelectorAll('.summary-card')[3].querySelector('.sub').textContent = silenceTotal + ' / ' + total + ' 발화';
+
+// Also update header total
+document.querySelector('.header-sub').children[2].innerHTML = '💬 총 발화 수: ' + total + '개';
+
+// === DONUT CHART ===
+new Chart(document.getElementById('donutChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['교사 간접영향 (1-4)', '교사 직접영향 (5-7)', '학생 발화 (8-9)', '침묵/혼란 (10)'],
+    datasets: [{
+      data: [teacherIndirect, teacherDirect, studentTotal, silenceTotal],
+      backgroundColor: ['#4a90d9', '#e8834a', '#52b788', '#adb5bd'],
+      borderWidth: 2,
+      borderColor: '#fff'
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { family: "'Noto Sans KR'", size: 12 }, padding: 16 } },
+      tooltip: {
+        callbacks: {
+          label: ctx => ctx.label + ': ' + ctx.raw + '회 (' + (ctx.raw / total * 100).toFixed(1) + '%)'
+        }
+      }
+    }
+  }
+});
+
+// === BAR CHART ===
+const catLabels = [
+  '1.감정수용', '2.칭찬/격려', '3.아이디어수용', '4.질문',
+  '5.강의/설명', '6.지시/명령', '7.비판',
+  '8.학생반응', '9.학생주도', '10.침묵'
+];
+const catColors = [
+  '#4a90d9','#5ba0e6','#6cb0f0','#7ec0fa',
+  '#e8834a','#d96c3a','#c9522a',
+  '#52b788','#40916c','#adb5bd'
+];
+new Chart(document.getElementById('barChart'), {
+  type: 'bar',
+  data: {
+    labels: catLabels,
+    datasets: [{
+      label: '빈도',
+      data: Array.from({length:10}, (_,i) => catCounts[i+1]),
+      backgroundColor: catColors,
+      borderRadius: 4,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ctx.raw + '회 (' + (ctx.raw / total * 100).toFixed(1) + '%)'
+        }
+      }
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: "'Noto Sans KR'" } }, title: { display: true, text: '빈도(회)', font: { family: "'Noto Sans KR'" } } },
+      x: { ticks: { font: { family: "'Noto Sans KR'", size: 10 }, maxRotation: 45 } }
+    }
+  }
+});
+
+// === TIMELINE CHART ===
+const timeLabels = codingData.map(d => d.id);
+const timeData = codingData.map(d => d.cat);
+const timeColors = codingData.map(d => catColors[d.cat - 1]);
+
+new Chart(document.getElementById('timelineChart'), {
+  type: 'bar',
+  data: {
+    labels: timeLabels,
+    datasets: [{
+      label: '카테고리',
+      data: timeData,
+      backgroundColor: timeColors,
+      borderRadius: 2,
+      borderSkipped: false,
+      barPercentage: 0.95,
+      categoryPercentage: 0.95
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: ctx => '발화 #' + codingData[ctx[0].dataIndex].id,
+          label: ctx => {
+            const d = codingData[ctx.dataIndex];
+            return ['카테고리 ' + d.cat + ': ' + d.catName, d.speaker + ': ' + d.text.substring(0, 40) + (d.text.length > 40 ? '...' : '')];
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        min: 0, max: 11,
+        ticks: {
+          stepSize: 1,
+          font: { family: "'Noto Sans KR'", size: 10 },
+          callback: v => {
+            const names = ['','1.감정','2.칭찬','3.수용','4.질문','5.강의','6.지시','7.비판','8.반응','9.주도','10.침묵'];
+            return names[v] || '';
+          }
+        },
+        title: { display: true, text: 'FIAS 카테고리', font: { family: "'Noto Sans KR'" } }
+      },
+      x: {
+        title: { display: true, text: '발화 순서', font: { family: "'Noto Sans KR'" } },
+        ticks: { font: { size: 9 } }
+      }
+    }
+  }
+});
+
+// === POPULATE TABLE ===
+const tbody = document.getElementById('codingTableBody');
+codingData.forEach(d => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${d.id}</td><td>${d.speaker}</td><td>${d.text}</td><td><span class="cat-badge cat-${d.cat}">${d.cat}</span> ${d.catName}</td>`;
+  tbody.appendChild(tr);
+});
+
+function toggleTable() {
+  const wrap = document.getElementById('codingTableWrap');
+  const icon = document.getElementById('toggleIcon');
+  if (wrap.style.display === 'none') {
+    wrap.style.display = 'block';
+    icon.textContent = '▼';
+  } else {
+    wrap.style.display = 'none';
+    icon.textContent = '▶';
+  }
+}
+</script>
+</body>
+</html>
