@@ -11,6 +11,15 @@
 
 ## 📊 분석 결과
 
+### 🤖 MAS v4.0 멀티 에이전트 분석 (NEW!)
+
+| 보고서 | 설명 |
+|--------|------|
+| [🤖 MAS 플랫폼 홈페이지](https://edu-data.github.io/mas/mas-index.html) | 멀티 에이전트 수업 분석 플랫폼 소개 |
+| [📊 MAS 분석 대시보드](https://edu-data.github.io/mas/mas-dashboard.html) | 8-에이전트 파이프라인 18개 영상 분석 결과 |
+
+### 📋 기존 분석 결과
+
 | 보고서 | 설명 |
 |--------|------|
 | [📊 배치 분석 대시보드](https://edu-data.github.io/GAIM_Lab/batch_dashboard.html) | 18개 영상 시각화 대시보드 (점수분포, 등급, 레이더차트) |
