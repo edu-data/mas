@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.api import analysis, portfolio, badges, mentoring, realtime
+from app.api import analysis, portfolio, badges, mentoring, realtime, agents
 
 # 앱 초기화
 app = FastAPI(
@@ -43,6 +43,7 @@ app.include_router(portfolio.router, prefix="/api/v1/portfolio", tags=["포트�
 app.include_router(badges.router, prefix="/api/v1/badges", tags=["디지털 배지"])
 app.include_router(mentoring.router, prefix="/api/v1/mentoring", tags=["멘토링"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["실시간"])
+app.include_router(agents.router, prefix="/api/v1/agents", tags=["에이전트"])
 
 
 @app.get("/")
