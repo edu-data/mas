@@ -2,11 +2,12 @@
 
 **멀티 에이전트 수업 분석 시스템** · 8개 AI 에이전트가 협업하여 수업 영상을 7차원 평가하는 플랫폼
 
-[![Version](https://img.shields.io/badge/version-5.0.0-7c3aed)](https://github.com/edu-data/mas/releases/tag/v5.0)
+[![Version](https://img.shields.io/badge/version-6.0.0-7c3aed)](https://github.com/edu-data/mas/releases/tag/v6.0)
 [![Python](https://img.shields.io/badge/python-3.9+-3776AB)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React_18-61DAFB)](https://react.dev)
 [![Gemini](https://img.shields.io/badge/Gemini_AI-4285F4)](https://ai.google.dev)
+[![pyannote](https://img.shields.io/badge/pyannote.audio-FF6F00)](https://github.com/pyannote/pyannote-audio)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 <p align="center">
@@ -31,7 +32,9 @@ MAS(Multi-Agent System)는 **예비교원의 수업 영상**을 8개 전문화�
 | ⏱️ 총 처리 시간 | **114.9분 (영상당 ~6.4분)** |
 | 🤖 에이전트 수 | **8개** |
 | 📐 평가 차원 | **7개** |
-| 🗣️ 화자 분리 | **v5.0 NEW** |
+| 🗣️ 화자 분리 | **pyannote 3.3 (v5.0+)** |
+| 🔬 신뢰도 분석 | **Test-Retest r=0.68, ±5pt 일치 82.6%** |
+| 📏 기준타당도 | **전문가 채점 대비 분석 도구 (v6.0 NEW)** |
 
 ---
 
@@ -73,7 +76,7 @@ MAS(Multi-Agent System)는 **예비교원의 수업 영상**을 8개 전문화�
 | 1 | **Extractor** | 영상에서 프레임·오디오 초고속 추출 | FFmpeg CUDA, GPU 가속 |
 | 2 | **Vision** | 교사 시선, 제스처, 자세 비언어적 분석 | OpenCV, Gemini Vision |
 | 3 | **Content** | 판서, 교수자료, 멀티미디어 콘텐츠 분석 | Gemini AI |
-| 4 | **STT** | 음성→텍스트 변환, 한국어 필러 감지 | OpenAI Whisper |
+| 4 | **STT** | 음성→텍스트 변환, 화자 분리, 한국어 필러 감지 | OpenAI Whisper, pyannote.audio |
 | 5 | **Vibe** | 음성 프로소디(억양·속도·에너지) 분석 | Librosa |
 | 6 | **Pedagogy** | 교육학 이론 기반 7차원 체계적 평가 | RAG + Gemini |
 | 7 | **Feedback** | 개인 맞춤형 피드백·액션 플랜 생성 | LLM + Rule Engine |
@@ -126,6 +129,10 @@ MAS/
 ├── docs/                        # 📄 GitHub Pages
 ├── run_batch_agents.py          # 🔄 배치 분석 (MAS 파이프라인)
 ├── run_sample_analysis.py       # 🔬 단일 영상 분석
+├── reliability_analysis.py      # 📊 신뢰도 분석 (ICC/α/Test-Retest)
+├── criterion_validity.py        # 🎯 기준타당도 분석 (전문가 vs AI)
+├── cross_analysis.py            # 🔀 교차 분석
+├── expert_scores.csv            # 📋 전문가 채점 템플릿
 └── pyproject.toml               # 📦 패키지 설정
 ```
 
@@ -207,7 +214,7 @@ python batch_analysis.py --limit 5
 
 ## 📊 분석 결과
 
-### 🤖 MAS v5.0 — 18개 영상 분석 (최신)
+### 🤖 MAS v5.0 — 18개 영상 분석
 
 | 통계 | 결과 |
 | ---- | ---- |
@@ -220,29 +227,37 @@ python batch_analysis.py --limit 5
 
 **등급 분포**: A-등급 4개 (22%) / B+등급 11개 (61%) / B등급 2개 (11%) / B-등급 1개 (6%)
 
-**차원별 평균 성취율**:
+### 🔬 v6.0 — 신뢰도·타당도 분석 (최신)
 
-| 차원 | 평균 | 성취율 |
-| ---- | :--: | :--: |
-| 학생 참여 | 14.7/15 | **98%** |
-| 수업 전문성 | 15.4/20 | 77% |
-| 판서 및 언어 | 11.1/15 | 74% |
-| 교수학습 방법 | 14.6/20 | 73% |
-| 수업 태도 | 10.9/15 | 73% |
-| 시간 배분 | 7.1/10 | 71% |
-| 창의성 | 3.5/5 | 70% |
+6회 반복 배치 분석 × 18영상 × 7차원 신뢰도 검증:
+
+| 신뢰도 지표 | 결과 | 비고 |
+| ---- | :--: | ---- |
+| Cronbach's α | 0.33 | 7차원 각각 독립적 구인 측정 |
+| Test-Retest r | **0.68** (0.35~0.93) | 실행 간 순위 안정성 |
+| MAD (평균 절대차) | **3.09점** | 100점 만점 기준 |
+| ±5점 일치율 | **82.6%** | 실용적 일치 수준 |
+| ±3점 일치율 | 57.0% | 엄격 일치 수준 |
+
+**차원별 우수 지표**:
+
+| 차원 | ICC(2,1) | Retest r | 판정 |
+| ---- | :--: | :--: | :--: |
+| 판서 및 언어 | 0.7454 | 0.8647 | ✅ 우수 |
+| 시간 배분 | 0.5747 | 0.9531 | ✅ 우수 |
+| 수업 전문성 | 0.4894 | 0.5721 | ⚠️ 양호 |
 
 | 대시보드 | 링크 |
 | -------- | ---- |
 | 🤖 MAS 홈페이지 | [edu-data.github.io/mas](https://edu-data.github.io/mas/docs/mas-index.html) |
-| 📊 v5.0 분석 대시보드 | [18개 영상 시각화 + 화자 분리](https://edu-data.github.io/GAIM_Lab/batch_dashboard.html) |
+| 📊 v5.0 배치 대시보드 | [18개 영상 시각화 + 화자 분리](https://edu-data.github.io/GAIM_Lab/batch_dashboard.html) |
 | 📊 MAS 대시보드 | [v4.2 분석 결과](https://edu-data.github.io/mas/docs/mas-dashboard.html) |
 
-### 📋 이전 버전 분석 결과
+### 📋 이전 보고서
 
 | 보고서 | 설명 |
 | ------ | ---- |
-| [v5.0 배치 대시보드](https://edu-data.github.io/GAIM_Lab/batch_dashboard.html) | v5.0 화자분리·점수분포·산점도 |
+| [v5.0 배치 대시보드](https://edu-data.github.io/GAIM_Lab/batch_dashboard.html) | 화자분리·점수분포·산점도 |
 | [최고점 리포트](https://edu-data.github.io/GAIM_Lab/best_report_110545.html) | 84점 영상 상세 분석 |
 | [FIAS 대시보드](https://edu-data.github.io/GAIM_Lab/fias-dashboard.html) | Flanders 상호작용 분석 |
 | [종합 평가 보고서](https://edu-data.github.io/GAIM_Lab/comprehensive_report.html) | 18개 영상 종합 분석 |
@@ -251,6 +266,25 @@ python batch_analysis.py --limit 5
 ---
 
 ## 📜 버전 히스토리 (Changelog)
+
+### v6.0 — 신뢰도·기준타당도 분석 도구 `2026-02-19`
+
+- **pyannote.audio 3.3 통합**: Python 3.14 + PyTorch 2.10 환경 8-layer 호환성 패치
+  - torchaudio 2.10 API 스텁, numpy 2.0 NaN 별칭, torchcodec DLL mock
+  - huggingface_hub `use_auth_token→token` 자동 변환
+  - `torch.serialization.load` weights_only 패치
+- **신뢰도 분석** (`reliability_analysis.py`)
+  - Cronbach's α / ICC(2,1) / ICC(2,k) / SEM
+  - Test-Retest 상관(Pearson r) / MAD / ±3pt·±5pt 일치율
+  - IQR 기반 이상치 실행 자동 필터링
+  - HTML 리포트 (Chart.js 시각화)
+- **기준타당도 분석** (`criterion_validity.py`)
+  - Pearson r / Spearman ρ / R² / MAE / RMSE
+  - Bland-Altman 일치도 분석 + 산점도
+  - 등급 정확·인접 일치율
+  - `expert_scores.csv` 전문가 채점 템플릿
+- **교차 분석** (`cross_analysis.py`) / **YouTube 다운로더** (`download_youtube_videos.py`)
+- `pedagogy_agent.py` v6.0 채점 리밸런싱
 
 ### v5.0 — 화자 분리 & 담화 분석 `2026-02-18`
 
@@ -319,7 +353,8 @@ python batch_analysis.py --limit 5
 
 | 영역 | 기술 |
 | ---- | ---- |
-| **AI/ML** | Google Gemini AI, OpenAI Whisper, OpenCV, Librosa |
+| **AI/ML** | Google Gemini AI, OpenAI Whisper, pyannote.audio, OpenCV, Librosa |
+| **분석 도구** | ICC, Cronbach's α, Bland-Altman, Test-Retest, SEM |
 | **Backend** | FastAPI, Python 3.9+, RAG Pipeline |
 | **Frontend** | React 18, Vite, Chart.js |
 | **영상 처리** | FFmpeg (CUDA GPU 가속) |
