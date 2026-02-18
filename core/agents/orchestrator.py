@@ -2,7 +2,7 @@
 🎯 Agent Orchestrator - 멀티 에이전트 파이프라인 오케스트레이터
 Google ADK 스타일의 에이전트 실행 관리 시스템
 
-v5.0: Phase 2 진짜 병렬 실행 (ThreadPoolExecutor)
+v6.0: Phase 2 진짜 병렬 실행 (ThreadPoolExecutor), 채점 리밸런싱
 파이프라인 흐름:
 EXTRACT → [VISION | CONTENT | STT | VIBE] (병렬) → PEDAGOGY → FEEDBACK → SYNTHESIZE
 """

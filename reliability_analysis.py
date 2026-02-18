@@ -1,0 +1,704 @@
+#!/usr/bin/env python3
+"""
+GAIM Lab — 신뢰도 분석 (Cronbach's α / ICC)
+===========================================
+9회 반복 배치 분석 데이터를 활용하여 7차원 평가 도구의 신뢰도를 계량화합니다.
+
+지표:
+  • Cronbach's α  — 7차원 내적 합치도 (internal consistency)
+  • ICC(2,1)      — 절대 일치도 (single measures, two-way random)
+  • ICC(2,k)      — 평균 측도 신뢰도 (average measures)
+  • SEM           — 측정 표준오차 (Standard Error of Measurement)
+  • CV            — 변동계수 (Coefficient of Variation)
+
+Usage:
+  python reliability_analysis.py
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import math
+import os
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import numpy as np
+
+# ── 설정 ──────────────────────────────────────────────────────────────
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_BASE = BASE_DIR / "output"
+
+# 차원 매핑 (CSV 컬럼명 → 한글 표기)
+DIM_COLS = [
+    ("teaching_expertise", "수업 전문성", 20),
+    ("teaching_method",    "교수학습 방법", 20),
+    ("communication",      "판서 및 언어", 15),
+    ("teaching_attitude",  "수업 태도", 15),
+    ("student_engagement", "학생 참여", 15),
+    ("time_management",    "시간 배분", 10),
+    ("creativity",         "창의성", 5),
+]
+DIM_KEYS = [c for c, _, _ in DIM_COLS]
+DIM_LABELS = {c: l for c, l, _ in DIM_COLS}
+DIM_MAX = {c: m for c, _, m in DIM_COLS}
+
+
+# ── 데이터 로드 ───────────────────────────────────────────────────────
+def load_batch_runs() -> Tuple[List[str], List[str], np.ndarray]:
+    """
+    모든 agent_batch_summary.csv 파일을 로드합니다.
+    품질 필터링: 총점 평균이 이상치인 실행(all-zero, 비정상 평균)은 제외합니다.
+
+    Returns:
+        run_ids: 실행 ID 리스트 (길이 R)
+        videos:  영상 이름 리스트 (길이 N)
+        data:    (R, N, D) 배열 — R개 실행, N개 영상, D개 차원
+    """
+    batch_dirs = sorted([
+        d for d in OUTPUT_BASE.iterdir()
+        if d.is_dir() and d.name.startswith("batch_agents_")
+    ])
+
+    candidates = []
+
+    for bd in batch_dirs:
+        csv_path = bd / "agent_batch_summary.csv"
+        if not csv_path.exists():
+            continue
+
+        with open(csv_path, encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+
+        rows = [r for r in rows if r.get("status") == "success"]
+        if len(rows) < 10:
+            continue
+
+        videos = [r["video"] for r in rows]
+        scores = []
+        for r in rows:
+            dims = []
+            for col in DIM_KEYS:
+                try:
+                    dims.append(float(r.get(col, 0)))
+                except (ValueError, TypeError):
+                    dims.append(0.0)
+            scores.append(dims)
+
+        arr = np.array(scores)  # (N, D)
+        run_mean = arr.sum(axis=1).mean()
+
+        # 품질 필터: 총점 평균 0이거나 비정상적으로 낮은 경우 제외
+        if run_mean < 30:
+            print(f"   ⚠️ {bd.name} 제외 (총점 평균 {run_mean:.1f} — 비정상)")
+            continue
+
+        candidates.append((bd.name, videos, scores, run_mean))
+
+    if not candidates:
+        print("❌ 유효한 배치 실행 데이터를 찾을 수 없습니다.")
+        sys.exit(1)
+
+    # 이상치 실행 필터링: IQR 기반
+    means = np.array([c[3] for c in candidates])
+    q1, q3 = np.percentile(means, [25, 75])
+    iqr = q3 - q1
+    lower, upper = q1 - 2.0 * iqr, q3 + 2.0 * iqr  # 넉넉한 기준
+
+    filtered = []
+    for name, vids, sc, m in candidates:
+        if lower <= m <= upper:
+            filtered.append((name, vids, sc))
+        else:
+            print(f"   ⚠️ {name} 제외 (총점 평균 {m:.1f} — IQR 이상치)")
+
+    if not filtered:
+        print("❌ 필터링 후 유효한 실행이 없습니다.")
+        sys.exit(1)
+
+    # 공통 영상 목록
+    video_set = filtered[0][1]
+    for _, vids, _ in filtered[1:]:
+        video_set = [v for v in video_set if v in vids]
+
+    # 최종 데이터 구성
+    all_runs = []
+    run_ids = []
+    for name, vids, sc in filtered:
+        vid_idx = {v: i for i, v in enumerate(vids)}
+        ordered = [sc[vid_idx[v]] for v in video_set if v in vid_idx]
+        if len(ordered) == len(video_set):
+            all_runs.append(ordered)
+            run_ids.append(name)
+
+    data = np.array(all_runs, dtype=np.float64)  # (R, N, D)
+    print(f"✅ {len(run_ids)}회 실행, {len(video_set)}개 영상, {len(DIM_KEYS)}차원 로드 완료")
+    return run_ids, video_set, data
+
+
+# ── Cronbach's α ──────────────────────────────────────────────────────
+def cronbachs_alpha(item_scores: np.ndarray) -> float:
+    """
+    Cronbach's α 계산.
+
+    Args:
+        item_scores: (N, K) 배열 — N명 피험자, K개 항목
+    Returns:
+        alpha 값
+    """
+    N, K = item_scores.shape
+    if K < 2:
+        return float("nan")
+
+    item_vars = item_scores.var(axis=0, ddof=1)
+    total_var = item_scores.sum(axis=1).var(ddof=1)
+
+    if total_var == 0:
+        return 1.0
+
+    alpha = (K / (K - 1)) * (1 - item_vars.sum() / total_var)
+    return float(alpha)
+
+
+# ── ICC ──────────────────────────────────────────────────────────────
+def compute_icc(ratings: np.ndarray) -> Dict[str, float]:
+    """
+    ICC(2,1)과 ICC(2,k) 계산 — Two-way random effects, absolute agreement.
+
+    Args:
+        ratings: (N, K) 배열 — N개 대상, K명 평가자
+    Returns:
+        {'icc21': float, 'icc2k': float, 'sem': float}
+    """
+    n, k = ratings.shape
+    if n < 2 or k < 2:
+        return {"icc21": float("nan"), "icc2k": float("nan"), "sem": float("nan")}
+
+    # Grand mean
+    grand_mean = ratings.mean()
+
+    # Sum of squares
+    row_means = ratings.mean(axis=1)
+    col_means = ratings.mean(axis=0)
+
+    # Between-subjects (rows)
+    SS_between = k * np.sum((row_means - grand_mean) ** 2)
+    df_between = n - 1
+
+    # Between-raters (columns)
+    SS_raters = n * np.sum((col_means - grand_mean) ** 2)
+    df_raters = k - 1
+
+    # Residual (error)
+    SS_total = np.sum((ratings - grand_mean) ** 2)
+    SS_error = SS_total - SS_between - SS_raters
+    df_error = (n - 1) * (k - 1)
+
+    # Mean squares
+    MS_between = SS_between / df_between if df_between > 0 else 0
+    MS_raters = SS_raters / df_raters if df_raters > 0 else 0
+    MS_error = SS_error / df_error if df_error > 0 else 0
+
+    # ICC(2,1) — Single measures, two-way random, absolute agreement
+    denom_21 = MS_between + (k - 1) * MS_error + k * (MS_raters - MS_error) / n
+    icc21 = (MS_between - MS_error) / denom_21 if denom_21 != 0 else float("nan")
+
+    # ICC(2,k) — Average measures
+    denom_2k = MS_between + (MS_raters - MS_error) / n
+    icc2k = (MS_between - MS_error) / denom_2k if denom_2k != 0 else float("nan")
+
+    # SEM = sqrt(MS_error)
+    sem = math.sqrt(MS_error) if MS_error >= 0 else 0.0
+
+    return {"icc21": float(icc21), "icc2k": float(icc2k), "sem": float(sem)}
+
+
+# ── 재검사 상관 ────────────────────────────────────────────────────────
+def test_retest_correlation(data: np.ndarray) -> Dict:
+    """
+    연속 실행 간 재검사 상관(test-retest r)과 일치도를 계산합니다.
+
+    Args:
+        data: (R, N, D) 배열
+    Returns:
+        dict with pairwise r and agreement metrics
+    """
+    R, N, D = data.shape
+    totals = data.sum(axis=2)  # (R, N)
+
+    pairs = []
+    for i in range(R):
+        for j in range(i + 1, R):
+            r_val = float(np.corrcoef(totals[i], totals[j])[0, 1])
+            diff = np.abs(totals[i] - totals[j])
+            mad = float(np.mean(diff))  # Mean Absolute Difference
+            agree_5 = float(np.mean(diff <= 5) * 100)  # ±5점 이내 비율
+            agree_3 = float(np.mean(diff <= 3) * 100)  # ±3점 이내 비율
+            pairs.append({
+                "run_a": i, "run_b": j,
+                "pearson_r": round(r_val, 4) if not np.isnan(r_val) else 0.0,
+                "mad": round(mad, 2),
+                "agree_5pt_pct": round(agree_5, 1),
+                "agree_3pt_pct": round(agree_3, 1),
+            })
+
+    # 차원별 재검사 상관
+    dim_retest = {}
+    for d_idx, (col, label, _) in enumerate(DIM_COLS):
+        dim_r_values = []
+        dim_mad_values = []
+        for i in range(R):
+            for j in range(i + 1, R):
+                rv = np.corrcoef(data[i, :, d_idx], data[j, :, d_idx])[0, 1]
+                if not np.isnan(rv):
+                    dim_r_values.append(rv)
+                dim_mad_values.append(np.mean(np.abs(data[i, :, d_idx] - data[j, :, d_idx])))
+        dim_retest[col] = {
+            "label": label,
+            "mean_r": round(float(np.mean(dim_r_values)), 4) if dim_r_values else 0.0,
+            "min_r": round(float(np.min(dim_r_values)), 4) if dim_r_values else 0.0,
+            "max_r": round(float(np.max(dim_r_values)), 4) if dim_r_values else 0.0,
+            "mean_mad": round(float(np.mean(dim_mad_values)), 2),
+        }
+
+    r_values = [p["pearson_r"] for p in pairs]
+    return {
+        "pairs": pairs,
+        "n_pairs": len(pairs),
+        "mean_r": round(float(np.mean(r_values)), 4) if r_values else 0.0,
+        "min_r": round(float(np.min(r_values)), 4) if r_values else 0.0,
+        "max_r": round(float(np.max(r_values)), 4) if r_values else 0.0,
+        "mean_mad": round(float(np.mean([p["mad"] for p in pairs])), 2),
+        "mean_agree_5pt": round(float(np.mean([p["agree_5pt_pct"] for p in pairs])), 1),
+        "mean_agree_3pt": round(float(np.mean([p["agree_3pt_pct"] for p in pairs])), 1),
+        "dimensions": dim_retest,
+    }
+
+
+# ── 분석 실행 ──────────────────────────────────────────────────────────
+def run_analysis():
+    run_ids, videos, data = load_batch_runs()
+    R, N, D = data.shape
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir = OUTPUT_BASE / f"reliability_{timestamp}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    results = {
+        "meta": {
+            "runs": R,
+            "videos": N,
+            "dimensions": D,
+            "run_ids": run_ids,
+            "timestamp": timestamp,
+        },
+        "cronbachs_alpha": {},
+        "icc": {},
+        "test_retest": {},
+        "dimension_stats": {},
+    }
+
+    # ── 1. Cronbach's α (각 실행별) ──
+    alphas = []
+    for r_idx in range(R):
+        scores = data[r_idx]  # (N, D)
+        a = cronbachs_alpha(scores)
+        alphas.append(a)
+
+    results["cronbachs_alpha"] = {
+        "per_run": {run_ids[i]: round(alphas[i], 4) for i in range(R)},
+        "mean": round(float(np.mean(alphas)), 4),
+        "std": round(float(np.std(alphas, ddof=1)), 4) if R > 1 else 0.0,
+        "min": round(float(np.min(alphas)), 4),
+        "max": round(float(np.max(alphas)), 4),
+    }
+
+    # ── 2. ICC — 차원별 & 총점 ──
+    icc_results = {}
+
+    totals = data.sum(axis=2)  # (R, N)
+    total_ratings = totals.T  # (N, R)
+    icc_total = compute_icc(total_ratings)
+    icc_results["total_score"] = {
+        "label": "총점",
+        "max": 100,
+        "icc21": round(icc_total["icc21"], 4),
+        "icc2k": round(icc_total["icc2k"], 4),
+        "sem": round(icc_total["sem"], 2),
+    }
+
+    for d_idx, (col, label, max_score) in enumerate(DIM_COLS):
+        dim_ratings = data[:, :, d_idx].T  # (N, R)
+        icc_dim = compute_icc(dim_ratings)
+
+        dim_means = dim_ratings.mean(axis=1)
+        dim_stds = dim_ratings.std(axis=1, ddof=1)
+        cv_values = np.where(dim_means > 0, dim_stds / dim_means * 100, 0)
+        cv_mean = float(np.nanmean(cv_values))
+
+        icc_results[col] = {
+            "label": label,
+            "max": max_score,
+            "icc21": round(icc_dim["icc21"], 4),
+            "icc2k": round(icc_dim["icc2k"], 4),
+            "sem": round(icc_dim["sem"], 2),
+            "cv_mean_pct": round(cv_mean, 2),
+        }
+
+    results["icc"] = icc_results
+
+    # ── 3. 재검사 상관 (Test-Retest) ──
+    retest = test_retest_correlation(data)
+    results["test_retest"] = retest
+
+    # ── 4. 차원별 기술통계 ──
+    for d_idx, (col, label, max_score) in enumerate(DIM_COLS):
+        all_scores = data[:, :, d_idx].flatten()
+        results["dimension_stats"][col] = {
+            "label": label,
+            "max": max_score,
+            "mean": round(float(np.mean(all_scores)), 2),
+            "std": round(float(np.std(all_scores, ddof=1)), 2),
+            "min": round(float(np.min(all_scores)), 1),
+            "max_observed": round(float(np.max(all_scores)), 1),
+            "range": round(float(np.ptp(all_scores)), 1),
+        }
+
+    all_totals = data.sum(axis=2).flatten()
+    results["dimension_stats"]["total_score"] = {
+        "label": "총점",
+        "max": 100,
+        "mean": round(float(np.mean(all_totals)), 2),
+        "std": round(float(np.std(all_totals, ddof=1)), 2),
+        "min": round(float(np.min(all_totals)), 1),
+        "max_observed": round(float(np.max(all_totals)), 1),
+        "range": round(float(np.ptp(all_totals)), 1),
+    }
+
+    # ── CSV 출력 ──
+    csv_path = out_dir / "reliability_summary.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f)
+        w.writerow([
+            "dimension", "label", "max_score",
+            "ICC(2,1)", "ICC(2,k)", "SEM", "CV(%)",
+            "test_retest_r", "MAD",
+            "mean", "std", "min", "max_observed",
+        ])
+        for key in ["total_score"] + DIM_KEYS:
+            icc = icc_results[key]
+            stats = results["dimension_stats"][key]
+            tr = retest["dimensions"].get(key, {})
+            w.writerow([
+                key, icc["label"], icc["max"],
+                icc["icc21"], icc["icc2k"], icc["sem"],
+                icc.get("cv_mean_pct", ""),
+                tr.get("mean_r", retest["mean_r"]),
+                tr.get("mean_mad", retest["mean_mad"]),
+                stats["mean"], stats["std"], stats["min"], stats["max_observed"],
+            ])
+
+    # ── JSON 출력 ──
+    json_path = out_dir / "reliability_results.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
+
+    # ── HTML 리포트 ──
+    html_path = out_dir / "reliability_report.html"
+    generate_html_report(results, html_path)
+
+    # ── 콘솔 요약 ──
+    print(f"\n{'='*60}")
+    print(f"  GAIM Lab 신뢰도 분석 결과")
+    print(f"  {R}회 실행 × {N}개 영상 × {D}차원")
+    print(f"{'='*60}")
+
+    print(f"\n📊 Cronbach's α (내적 합치도)")
+    print(f"   평균: {results['cronbachs_alpha']['mean']:.4f}")
+    print(f"   범위: {results['cronbachs_alpha']['min']:.4f} ~ {results['cronbachs_alpha']['max']:.4f}")
+    ca = results["cronbachs_alpha"]["mean"]
+    print(f"   판정: {'✅ 우수 (≥0.8)' if ca >= 0.8 else '⚠️ 양호 (≥0.7)' if ca >= 0.7 else '❌ 미흡 (<0.7)'}")
+
+    print(f"\n📊 재검사 신뢰도 (Test-Retest)")
+    print(f"   평균 Pearson r: {retest['mean_r']:.4f}")
+    print(f"   범위: {retest['min_r']:.4f} ~ {retest['max_r']:.4f}")
+    print(f"   평균 절대차(MAD): {retest['mean_mad']:.2f}점")
+    print(f"   ±5점 이내 일치: {retest['mean_agree_5pt']:.1f}%")
+    print(f"   ±3점 이내 일치: {retest['mean_agree_3pt']:.1f}%")
+
+    print(f"\n📊 ICC (급내 상관계수)")
+    print(f"   {'차원':<14} {'ICC(2,1)':>9} {'ICC(2,k)':>9} {'SEM':>6} {'Retest r':>10}")
+    print(f"   {'─'*52}")
+    for key in ["total_score"] + DIM_KEYS:
+        icc = icc_results[key]
+        label = icc["label"]
+        i21, i2k, sem = icc["icc21"], icc["icc2k"], icc["sem"]
+        tr_r = retest["dimensions"].get(key, {}).get("mean_r", retest["mean_r"])
+        print(f"   {label:<12} {i21:>9.4f} {i2k:>9.4f} {sem:>6.2f} {tr_r:>10.4f}")
+
+    print(f"\n📁 결과 저장: {out_dir}")
+    print(f"   • {csv_path.name}")
+    print(f"   • {json_path.name}")
+    print(f"   • {html_path.name}")
+
+    return results, out_dir
+
+
+# ── HTML 리포트 ───────────────────────────────────────────────────────
+def generate_html_report(results: dict, path: Path):
+    """신뢰도 분석 결과 HTML 리포트 생성"""
+    ca = results["cronbachs_alpha"]
+    icc = results["icc"]
+    stats = results["dimension_stats"]
+    meta = results["meta"]
+
+    ca_mean = ca["mean"]
+    retest = results["test_retest"]
+    ca_badge = "excellent" if ca_mean >= 0.8 else "good" if ca_mean >= 0.7 else "poor"
+    ca_text = "우수 (≥0.80)" if ca_mean >= 0.8 else "양호 (≥0.70)" if ca_mean >= 0.7 else "미흡 (<0.70)"
+
+    # ICC 테이블 행
+    icc_rows = ""
+    for key in ["total_score"] + DIM_KEYS:
+        d = icc[key]
+        badge = "excellent" if d["icc21"] >= 0.75 else "good" if d["icc21"] >= 0.50 else "poor"
+        verdict = "우수" if d["icc21"] >= 0.75 else "양호" if d["icc21"] >= 0.50 else "미흡"
+        cv = f'{d["cv_mean_pct"]:.1f}%' if "cv_mean_pct" in d else "—"
+        s = stats[key]
+        icc_rows += f"""
+        <tr>
+          <td><strong>{d['label']}</strong></td>
+          <td>{d['max']}</td>
+          <td><strong>{d['icc21']:.4f}</strong></td>
+          <td>{d['icc2k']:.4f}</td>
+          <td>{d['sem']:.2f}</td>
+          <td>{cv}</td>
+          <td>{s['mean']:.1f} ± {s['std']:.1f}</td>
+          <td><span class="badge {badge}">{verdict}</span></td>
+        </tr>"""
+
+    # Cronbach's α per-run 행
+    alpha_rows = ""
+    for rid, val in ca["per_run"].items():
+        ts = rid.replace("batch_agents_", "")
+        badge = "excellent" if val >= 0.8 else "good" if val >= 0.7 else "poor"
+        alpha_rows += f'<tr><td>{ts}</td><td><strong>{val:.4f}</strong></td><td><span class="badge {badge}">{"우수" if val >= 0.8 else "양호" if val >= 0.7 else "미흡"}</span></td></tr>'
+
+    # ICC bar chart data
+    icc_chart_labels = [icc[k]["label"] for k in ["total_score"] + DIM_KEYS]
+    icc_chart_values = [icc[k]["icc21"] for k in ["total_score"] + DIM_KEYS]
+
+    html = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAIM Lab — 신뢰도 분석 리포트</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {{
+    --bg: #0f0f1a; --surface: #1a1a2e; --card: #16213e;
+    --accent: #6c63ff; --accent2: #00d2ff; --text: #e0e0ec;
+    --text-dim: #888; --success: #00e676; --warning: #ffc107; --danger: #ff5252;
+  }}
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{ font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }}
+  .container {{ max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }}
+  h1 {{ font-size: 2rem; text-align: center; margin-bottom: 0.5rem;
+       background: linear-gradient(135deg, var(--accent), var(--accent2));
+       -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+  .subtitle {{ text-align: center; color: var(--text-dim); margin-bottom: 2rem; }}
+  .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }}
+  .card {{ background: var(--card); border-radius: 12px; padding: 1.5rem; text-align: center;
+           border: 1px solid rgba(108,99,255,0.2); }}
+  .card .value {{ font-size: 2rem; font-weight: 700;
+                  background: linear-gradient(135deg, var(--accent), var(--accent2));
+                  -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+  .card .label {{ color: var(--text-dim); font-size: 0.85rem; margin-top: 0.3rem; }}
+  .section {{ background: var(--surface); border-radius: 14px; padding: 1.8rem;
+              margin-bottom: 1.5rem; border: 1px solid rgba(108,99,255,0.15); }}
+  .section h2 {{ font-size: 1.25rem; margin-bottom: 1rem; color: var(--accent2); }}
+  table {{ width: 100%; border-collapse: collapse; font-size: 0.9rem; }}
+  th {{ background: rgba(108,99,255,0.15); padding: 0.7rem 0.5rem; text-align: center;
+       font-weight: 600; color: var(--accent2); border-bottom: 2px solid rgba(108,99,255,0.3); }}
+  td {{ padding: 0.6rem 0.5rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); }}
+  tr:hover {{ background: rgba(108,99,255,0.08); }}
+  .badge {{ display: inline-block; padding: 0.2rem 0.7rem; border-radius: 12px; font-size: 0.78rem; font-weight: 600; }}
+  .badge.excellent {{ background: rgba(0,230,118,0.15); color: var(--success); }}
+  .badge.good {{ background: rgba(255,193,7,0.15); color: var(--warning); }}
+  .badge.poor {{ background: rgba(255,82,82,0.15); color: var(--danger); }}
+  .chart-container {{ max-width: 700px; margin: 0 auto; }}
+  .interpretation {{ background: var(--card); border-radius: 10px; padding: 1.2rem; margin-top: 1rem;
+                     border-left: 4px solid var(--accent); font-size: 0.88rem; line-height: 1.6; }}
+  .interpretation h3 {{ color: var(--accent2); margin-bottom: 0.5rem; }}
+  .grid-2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }}
+  @media (max-width: 768px) {{ .grid-2 {{ grid-template-columns: 1fr; }} }}
+  .footer {{ text-align: center; color: var(--text-dim); font-size: 0.8rem; margin-top: 2rem; }}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📊 GAIM Lab 신뢰도 분석 리포트</h1>
+  <p class="subtitle">{meta['runs']}회 반복 × {meta['videos']}개 영상 × {meta['dimensions']}차원 평가 도구</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="value">{ca_mean:.4f}</div>
+      <div class="label">Cronbach's α (평균)</div>
+    </div>
+    <div class="card">
+      <div class="value">{retest['mean_r']:.4f}</div>
+      <div class="label">재검사 상관 (Test-Retest r)</div>
+    </div>
+    <div class="card">
+      <div class="value">{retest['mean_mad']:.2f}</div>
+      <div class="label">평균 절대차 (MAD, 점)</div>
+    </div>
+    <div class="card">
+      <div class="value">{retest['mean_agree_5pt']:.0f}%</div>
+      <div class="label">±5점 이내 일치율</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📈 ICC(2,1) 차원별 급내 상관계수</h2>
+    <div class="chart-container">
+      <canvas id="iccChart"></canvas>
+    </div>
+    <table style="margin-top: 1.2rem;">
+      <thead>
+        <tr>
+          <th>차원</th><th>만점</th><th>ICC(2,1)</th><th>ICC(2,k)</th>
+          <th>SEM</th><th>CV(%)</th><th>M ± SD</th><th>판정</th>
+        </tr>
+      </thead>
+      <tbody>{icc_rows}</tbody>
+    </table>
+    <div class="interpretation">
+      <h3>📖 해석 기준 (Koo & Li, 2016)</h3>
+      ICC &lt; 0.50 = 미흡(poor) · 0.50–0.75 = 양호(moderate) · 0.75–0.90 = 우수(good) · &gt; 0.90 = 탁월(excellent)<br>
+      <em>⚠️ AI 시스템의 경우: 평상시 분석 결과가 좌우 대칭적이므로 (variance ratio가 작음),
+      ICC가 낮게 나올 수 있습니다. 재검사 상관(Test-Retest r)과 MAD를 병행 해석하세요.</em>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🔄 재검사 신뚰도 (Test-Retest Reliability)</h2>
+    <div class="cards" style="margin-bottom:1rem">
+      <div class="card">
+        <div class="value">{retest['mean_r']:.4f}</div>
+        <div class="label">평균 Pearson r</div>
+      </div>
+      <div class="card">
+        <div class="value">{retest['mean_mad']:.2f}점</div>
+        <div class="label">평균 절대차 (MAD)</div>
+      </div>
+      <div class="card">
+        <div class="value">{retest['mean_agree_3pt']:.0f}%</div>
+        <div class="label">±3점 이내 일치</div>
+      </div>
+      <div class="card">
+        <div class="value">{retest['mean_agree_5pt']:.0f}%</div>
+        <div class="label">±5점 이내 일치</div>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>차원</th><th>평균 r</th><th>최소 r</th><th>최대 r</th><th>MAD</th><th>판정</th></tr>
+      </thead>
+      <tbody>""" + "".join([
+        f'<tr><td><strong>{retest["dimensions"][k]["label"]}</strong></td>'
+        f'<td>{retest["dimensions"][k]["mean_r"]:.4f}</td>'
+        f'<td>{retest["dimensions"][k]["min_r"]:.4f}</td>'
+        f'<td>{retest["dimensions"][k]["max_r"]:.4f}</td>'
+        f'<td>{retest["dimensions"][k]["mean_mad"]:.2f}</td>'
+        f'<td><span class="badge {"excellent" if retest["dimensions"][k]["mean_r"] >= 0.7 else "good" if retest["dimensions"][k]["mean_r"] >= 0.5 else "poor"}">{"우수" if retest["dimensions"][k]["mean_r"] >= 0.7 else "양호" if retest["dimensions"][k]["mean_r"] >= 0.5 else "미흡"}</span></td></tr>'
+        for k in DIM_KEYS
+    ]) + f"""</tbody>
+    </table>
+    <div class="interpretation">
+      <h3>📖 해석</h3>
+      재검사 상관 r ≥ 0.70 = 우수 · r ≥ 0.50 = 양호 · r &lt; 0.50 = 미흡<br>
+      MAD(평균 절대차)는 동일 영상의 반복 분석 시 점수 변동 폭을 나타냅니다.
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🔬 Cronbach's α — 내적 합치도</h2>
+    <div class="grid-2">
+      <div>
+        <table>
+          <thead><tr><th>실행</th><th>α</th><th>판정</th></tr></thead>
+          <tbody>{alpha_rows}</tbody>
+        </table>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:1rem">
+          <div class="value">{ca_mean:.4f}</div>
+          <div class="label">평균 Cronbach's α</div>
+        </div>
+        <div class="card">
+          <div class="value">{ca['min']:.4f} ~ {ca['max']:.4f}</div>
+          <div class="label">범위 (min ~ max)</div>
+        </div>
+        <div class="interpretation" style="margin-top:1rem">
+          <h3>📖 해석 기준</h3>
+          α ≥ 0.90 = 탁월 · ≥ 0.80 = 우수 · ≥ 0.70 = 양호 · &lt; 0.70 = 미흡
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    GAIM Lab Reliability Analysis · Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+  </div>
+</div>
+
+<script>
+new Chart(document.getElementById('iccChart'), {{
+  type: 'bar',
+  data: {{
+    labels: {json.dumps(icc_chart_labels, ensure_ascii=False)},
+    datasets: [{{
+      label: 'ICC(2,1)',
+      data: {json.dumps(icc_chart_values)},
+      backgroundColor: {json.dumps(icc_chart_values)}.map(v =>
+        v >= 0.75 ? 'rgba(0,230,118,0.6)' : v >= 0.50 ? 'rgba(255,193,7,0.6)' : 'rgba(255,82,82,0.6)'
+      ),
+      borderColor: {json.dumps(icc_chart_values)}.map(v =>
+        v >= 0.75 ? '#00e676' : v >= 0.50 ? '#ffc107' : '#ff5252'
+      ),
+      borderWidth: 2,
+      borderRadius: 6,
+    }}]
+  }},
+  options: {{
+    responsive: true,
+    plugins: {{
+      legend: {{ display: false }},
+      title: {{ display: false }},
+    }},
+    scales: {{
+      y: {{
+        min: 0, max: 1,
+        ticks: {{ stepSize: 0.25, color: '#888' }},
+        grid: {{ color: 'rgba(255,255,255,0.05)' }},
+      }},
+      x: {{ ticks: {{ color: '#aaa' }}, grid: {{ display: false }} }},
+    }},
+  }},
+}});
+</script>
+</body>
+</html>"""
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+# ── main ──────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    run_analysis()

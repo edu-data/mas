@@ -1,12 +1,14 @@
 """
 📚 Pedagogy Agent - 교육학 이론 기반 평가 전문 에이전트
-v5.0: YAML 루브릭 설정 + 화자분리/발화분석 통합 + 점수 범위 ±5.0
+v6.0: 채점 로직 리밸런싱 + 변별력 개선
 
-v5.0 개선:
-- 외부 rubric_config.yaml 로드 (수업 유형별 프리셋)
-- 화자 분리 데이터 (student_turns, interaction_count) → 학생 참여 직접 측정
-- DiscourseAnalyzer 결과 (질문 유형, 피드백 품질, Bloom 수준) 통합
-- 점수 조정 범위 확대: ±3.0 → ±5.0 (더 넓은 변별력)
+v6.0 개선:
+- adjust_range 클램핑 실제 적용 (base ± range 제한)
+- 지표 중복 제거 (slide_ratio → 교수학습 방법에서만 사용)
+- 학생 참여 천장 효과 제거 (가산점 축소)
+- 창의성 변동폭 확대 (1.5~5.0 도달 가능)
+- 가감점 균형화 (감산 조건 강화)
+- Vision 데이터 적극 반영 (MediaPipe Tasks 활용)
 """
 
 from typing import Dict, List
@@ -73,7 +75,7 @@ def _safe(d: Dict, key: str, default=None):
 
 
 class PedagogyAgent:
-    """📚 교육학 이론 기반 7차원 평가 에이전트 (v5.0 — 종합 개선)"""
+    """📚 교육학 이론 기반 7차원 평가 에이전트 (v6.0 — 채점 리밸런싱)"""
 
     def __init__(self, use_rag: bool = True, preset: str = "default"):
         self.use_rag = use_rag
@@ -161,9 +163,18 @@ class PedagogyAgent:
         p = self.current_preset.get(dim_name, {})
         return p.get("base", 10.0)
 
+    def _get_adjust_range(self, dim_name: str) -> float:
+        """프리셋에서 조정 범위 가져오기"""
+        p = self.current_preset.get(dim_name, {})
+        return p.get("adjust_range", 5.0)
+
     def _make_score(self, name, base, feedback_fn, tips=None):
         w = self.dimensions.get(name, DEFAULT_DIMENSIONS.get(name, {})).get("weight", 10)
-        score = max(0, min(w, round(base, 1)))
+        # v6.0: adjust_range 클램핑 — base ± range 내에서만 허용
+        preset_base = self._get_base(name)
+        adj_range = self._get_adjust_range(name)
+        clamped = max(preset_base - adj_range, min(preset_base + adj_range, base))
+        score = max(0, min(w, round(clamped, 1)))
         pct = (score / w) * 100
         g = "우수" if pct >= 85 else ("양호" if pct >= 70 else ("보통" if pct >= 55 else "노력 필요"))
         theory = self.dimensions.get(name, DEFAULT_DIMENSIONS.get(name, {})).get("theory", "")
@@ -173,7 +184,7 @@ class PedagogyAgent:
                               improvement_tips=tips or [])
 
     # ================================================================
-    # 1. 수업 전문성 (20점) — v5.0: Bloom 인지수준 반영
+    # 1. 수업 전문성 (20점) — v6.0: slide_ratio 제거, Bloom + WPM 중심
     # ================================================================
     def _eval_expertise(self, content, stt, vis_ok, con_ok, stt_ok, discourse, disc_ok):
         base = self._get_base("수업 전문성")
@@ -184,9 +195,9 @@ class PedagogyAgent:
             wpm = (wc / dur * 60) if dur > 0 else 0
 
             if wc > 1200:
-                base += 3.5
+                base += 2.5
             elif wc > 800:
-                base += 2.0
+                base += 1.5
             elif wc > 500:
                 base += 0.5
             elif wc > 300:
@@ -203,25 +214,27 @@ class PedagogyAgent:
             elif wpm < 40:
                 base -= 2.0
 
+        # v6.0: slide_ratio 제거 (교수학습 방법에서만 사용)
+        # 대신 speaker_visible_ratio 활용 (교사 존재감)
         if con_ok:
-            slide_r = _safe(content, 'slide_detected_ratio', 0)
-            if slide_r > 0.5:
-                base += 2.0
-            elif slide_r > 0.3:
-                base += 1.0
-            elif slide_r < 0.1:
-                base -= 1.0
+            speaker_vis = _safe(content, 'speaker_visible_ratio', 0)
+            if speaker_vis > 0.8:
+                base += 1.0  # 교사가 화면에 잘 보임
+            elif speaker_vis < 0.3:
+                base -= 0.5  # 교사가 거의 안 보임
 
-        # v5.0: Bloom 인지수준 반영
+        # v6.0: Bloom 인지수준 더 강하게 반영
         if disc_ok:
             bloom = discourse.get('bloom_levels', {})
             higher_order = bloom.get('analyze', 0) + bloom.get('evaluate', 0) + bloom.get('create', 0)
             if higher_order > 0.3:
-                base += 2.0  # 고차원 사고 비중 높음
+                base += 2.5  # 고차원 사고 비중 높음
             elif higher_order > 0.15:
-                base += 1.0
-            elif higher_order < 0.05:
-                base -= 1.0  # 암기 중심 수업
+                base += 1.5
+            elif higher_order > 0.05:
+                base += 0.5
+            else:
+                base -= 1.5  # 암기 중심 수업 → 더 강한 감점
 
         tips = []
         if stt_ok and stt.get('word_count', 0) < 500:
@@ -436,65 +449,73 @@ class PedagogyAgent:
                         "시선 접촉과 구체적 피드백을 통해 열정을 전달하세요.")), tips)
 
     # ================================================================
-    # 5. 학생 참여 (15점) — v5.0: 화자분리 직접 활용
+    # 5. 학생 참여 (15점) — v6.0: 천장 효과 제거 + 교사 지배 감점 강화
     # ================================================================
     def _eval_participation(self, stt, vibe, stt_ok, vib_ok, discourse, disc_ok):
         base = self._get_base("학생 참여")
 
         if stt_ok:
-            # v5.0: 화자 분리 데이터 직접 활용
+            # v6.0: 화자 분리 데이터 — 가산점 축소 + 감산 강화
             student_turns = stt.get('student_turns', 0)
             interaction_count = stt.get('interaction_count', 0)
             teacher_ratio = stt.get('teacher_ratio', 0.75)
 
-            if student_turns > 15:
-                base += 3.5  # 학생 발화 매우 활발
-            elif student_turns > 8:
+            # 학생 발화 (v5.0: +3.5 → v6.0: +2.0 최대)
+            if student_turns > 20:
                 base += 2.0
-            elif student_turns > 3:
+            elif student_turns > 10:
+                base += 1.5
+            elif student_turns > 5:
                 base += 0.5
-            elif student_turns == 0:
-                base -= 2.0  # 학생 발화 없음
+            elif student_turns > 0:
+                base += 0.0  # 약간의 참여
+            else:
+                base -= 3.0  # 학생 발화 없음 → 더 강한 감점
 
+            # 상호작용 교대 (v5.0: +2.0 → v6.0: +1.0 최대)
             if interaction_count > 20:
-                base += 2.0  # 활발한 교대
-            elif interaction_count > 10:
                 base += 1.0
+            elif interaction_count > 10:
+                base += 0.5
+            elif interaction_count < 3:
+                base -= 1.0  # 교대가 거의 없음
 
-            if teacher_ratio < 0.6:
-                base += 1.5  # 학생 주도적
+            # 교사 발화 비율 — v6.0: 더 세분화된 감산
+            if teacher_ratio < 0.5:
+                base += 1.5  # 학생 주도적 (드묾)
+            elif teacher_ratio < 0.65:
+                base += 1.0  # 균형적
+            elif teacher_ratio < 0.75:
+                base += 0.5  # 양호
+            elif teacher_ratio > 0.95:
+                base -= 3.0  # 거의 독강 → 대폭 감점
             elif teacher_ratio > 0.9:
-                base -= 1.5  # 교사 일방적
+                base -= 2.0  # 교사 일방적
+            elif teacher_ratio > 0.8:
+                base -= 1.0  # 교사 우세
 
-            # 질문 횟수
+            # 질문 횟수 (v5.0: +1.5 → v6.0: +0.5)
             question_count = stt.get('question_count', 0)
             if question_count > 10:
-                base += 1.5
-            elif question_count > 5:
                 base += 0.5
-
-            # 발화 패턴
-            pat = stt.get('speaking_pattern', '')
-            if 'Conversational' in pat or '대화' in pat:
-                base += 1.0
+            elif question_count == 0:
+                base -= 0.5
 
         if vib_ok:
             sr = _safe(vibe, 'avg_silence_ratio', 0.3)
             if 0.15 <= sr <= 0.30:
-                base += 1.0
-            elif sr < 0.05:
-                base -= 0.5
+                base += 0.5  # 적절한 침묵 (사고 시간)
             elif sr > 0.45:
-                base -= 1.0
+                base -= 0.5
 
-        # v5.0: 상호작용 점수 반영
+        # v6.0: 상호작용 점수 반영 (축소)
         if disc_ok:
             interaction_score = discourse.get('interaction_score', 50)
-            if interaction_score > 75:
-                base += 2.0
-            elif interaction_score > 60:
+            if interaction_score > 80:
                 base += 1.0
-            elif interaction_score < 35:
+            elif interaction_score > 65:
+                base += 0.5
+            elif interaction_score < 30:
                 base -= 1.0
 
         tips = []
@@ -554,58 +575,86 @@ class PedagogyAgent:
                         "시간 배분을 사전에 계획하고 각 단계에 충실하세요.")), tips)
 
     # ================================================================
-    # 7. 창의성 (5점) — v5.0: 발화 다양성 + 시각자료 복합 평가
+    # 7. 창의성 (5점) — v6.0: slide_ratio 제거 + 범위 확대
     # ================================================================
     def _eval_creativity(self, content, vision, stt, vibe, vis_ok, con_ok, stt_ok, vib_ok, discourse, disc_ok):
         base = self._get_base("창의성")
 
+        # v6.0: slide_ratio 제거 → 색상 대비/complexity로만 평가
         if con_ok:
-            slide_r = _safe(content, 'slide_detected_ratio', 0)
-            if slide_r > 0.5:
-                base += 1.0
-            elif slide_r > 0.3:
-                base += 0.5
-
             contrast = _safe(content, 'avg_color_contrast', 0)
+            complexity = _safe(content, 'avg_complexity', 0)
             if contrast > 60:
-                base += 0.5
-            elif contrast < 20:
+                base += 0.4
+            elif contrast < 15:
+                base -= 0.3
+            # 시각적 복잡도 → 풍부한 교구 활용 지표
+            if complexity > 10:
+                base += 0.3
+            elif complexity < 3:
                 base -= 0.3
 
+        # v6.0: Vision 데이터에 더 큰 가중치
         if vis_ok:
             motion = _safe(vision, 'avg_motion_score', 0)
-            if motion > 25:
-                base += 0.5
+            if motion > 30:
+                base += 0.6  # 활발한 움직임
+            elif motion > 15:
+                base += 0.3
+            elif motion < 3:
+                base -= 0.4  # 거의 움직임 없음
+
             openness = _safe(vision, 'avg_body_openness', 0.5)
-            if openness > 0.7:
-                base += 0.5
+            if openness > 0.75:
+                base += 0.5  # 개방적 자세
+            elif openness < 0.3:
+                base -= 0.3  # 폐쇄적 자세
+
+            gesture = _safe(vision, 'gesture_active_ratio', 0)
+            if gesture > 0.6:
+                base += 0.5  # 활발한 제스처
+            elif gesture > 0.3:
+                base += 0.2
+            elif gesture < 0.1:
+                base -= 0.4  # 제스처 거의 없음
 
         if stt_ok:
             wc = stt.get('word_count', 0)
             sc = stt.get('segment_count', 1)
-            dur = stt.get('duration_seconds', 600)
-            wpm = (wc / dur * 60) if dur > 0 else 0
 
             if sc > 100 and wc > 800:
-                base += 1.0
+                base += 0.4
             elif sc > 60 and wc > 500:
-                base += 0.5
+                base += 0.2
             elif wc < 300:
-                base -= 0.5
+                base -= 0.4
 
-        # v5.0: 고차원 인지 + 스캐폴딩 → 창의적 수업
+        # v6.0: 고차원 인지 + 스캐폴딩
         if disc_ok:
             bloom = discourse.get('bloom_levels', {})
             create_level = bloom.get('create', 0)
+            analyze_level = bloom.get('analyze', 0)
             if create_level > 0.1:
-                base += 0.8
+                base += 0.6  # 창작 활동
+            elif create_level > 0.03:
+                base += 0.3
+            if analyze_level > 0.15:
+                base += 0.3  # 분석 활동
             scaffolding = discourse.get('question_types', {}).get('scaffolding', 0)
-            if scaffolding >= 2:
-                base += 0.5
+            if scaffolding >= 3:
+                base += 0.4
+            elif scaffolding >= 1:
+                base += 0.2
+            # 감산: 기억 위주
+            remember = bloom.get('remember', 0)
+            if remember > 0.7:
+                base -= 0.5  # 암기 위주 → 창의성 감점
 
         tips = []
         if base < 3.5:
             tips.append("ICT 도구를 활용한 창의적 수업 설계를 시도하세요.")
+        if vis_ok and _safe(vision, 'gesture_active_ratio', 0) < 0.2:
+            tips.append("몸짓과 제스처를 적극 활용하여 수업을 역동적으로 만드세요.")
 
         return self._make_score("창의성", base,
             lambda p: "창의적인 수업 설계와 전달이 돋보입니다." if p >= 85 else
