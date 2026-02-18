@@ -100,6 +100,7 @@ def run_single_agent_analysis(video_path: Path, output_dir: Path):
             save["pedagogy"] = ped
             save["feedback"] = report.get("feedback", {})
             save["stt"] = report.get("stt", {})
+            save["discourse"] = report.get("discourse", {})  # v5.0
             save["vision_summary"] = report.get("vision_summary", {})
             save["content_summary"] = report.get("content_summary", {})
             save["vibe_summary"] = report.get("vibe_summary", {})

@@ -1,0 +1,73 @@
+# ================================================================
+# GAIM Lab v5.0 - 평가 루브릭 설정
+# 수업 유형별 가중치 및 기본점 프리셋
+# ================================================================
+
+# 7차원 평가 프레임워크 (초등임용 2차 수업실연 채점 기준 기반)
+dimensions:
+  수업_전문성:
+    weight: 20
+    theory: "구성주의 학습이론 - 학습 목표의 명확한 제시는 학생의 인지적 스캐폴딩을 제공합니다."
+  교수학습_방법:
+    weight: 20
+    theory: "다중지능이론(Gardner) - 다양한 교수법은 학생의 다양한 학습 양식에 대응합니다."
+  판서_및_언어:
+    weight: 15
+    theory: "Vygotsky의 근접발달영역(ZPD) - 명확한 언어 사용은 효과적인 비계설정의 핵심입니다."
+  수업_태도:
+    weight: 15
+    theory: "Bandura의 사회학습이론 - 교사의 열정과 태도는 학생의 학습 동기에 직접적으로 영향을 미칩니다."
+  학생_참여:
+    weight: 15
+    theory: "구성주의적 참여이론(Engagment Theory) - 학생의 능동적 참여는 심층 학습의 핵심 요소입니다."
+  시간_배분:
+    weight: 10
+    theory: "Keller의 ARCS 모델 - 체계적 시간 배분은 학습자의 주의와 만족에 기여합니다."
+  창의성:
+    weight: 5
+    theory: "창의적 문제해결(Torrance) - 독창적 수업 설계는 학생의 확산적 사고를 자극합니다."
+
+# 수업 유형별 프리셋
+presets:
+  # 기본 (강의식)
+  default:
+    수업_전문성: {base: 14.0, adjust_range: 5.0}
+    교수학습_방법: {base: 14.0, adjust_range: 5.0}
+    판서_및_언어: {base: 10.0, adjust_range: 4.0}
+    수업_태도: {base: 10.0, adjust_range: 4.0}
+    학생_참여: {base: 10.0, adjust_range: 4.0}
+    시간_배분: {base: 7.0, adjust_range: 2.5}
+    창의성: {base: 3.0, adjust_range: 1.5}
+
+  # 토론식 수업
+  discussion:
+    수업_전문성: {base: 13.0, adjust_range: 5.0}
+    교수학습_방법: {base: 14.0, adjust_range: 5.0}
+    판서_및_언어: {base: 10.0, adjust_range: 4.0}
+    수업_태도: {base: 10.0, adjust_range: 4.0}
+    학생_참여: {base: 12.0, adjust_range: 5.0}  # 참여 가중
+    시간_배분: {base: 7.0, adjust_range: 2.5}
+    창의성: {base: 3.0, adjust_range: 1.5}
+
+  # 실험/실습 수업
+  experiment:
+    수업_전문성: {base: 12.0, adjust_range: 5.0}
+    교수학습_방법: {base: 15.0, adjust_range: 5.0}
+    판서_및_언어: {base: 9.0, adjust_range: 4.0}
+    수업_태도: {base: 10.0, adjust_range: 4.0}
+    학생_참여: {base: 11.0, adjust_range: 4.0}
+    시간_배분: {base: 7.0, adjust_range: 2.5}
+    창의성: {base: 4.0, adjust_range: 2.0}  # 창의성 가중
+
+# 등급 기준
+grading:
+  A+: 90
+  A: 85
+  A-: 80
+  B+: 75
+  B: 70
+  B-: 65
+  C+: 60
+  C: 55
+  C-: 50
+  D: 0

@@ -2,13 +2,16 @@
 🎯 Agent Orchestrator - 멀티 에이전트 파이프라인 오케스트레이터
 Google ADK 스타일의 에이전트 실행 관리 시스템
 
+v5.0: Phase 2 진짜 병렬 실행 (ThreadPoolExecutor)
 파이프라인 흐름:
-EXTRACT → VISION + CONTENT (병렬) → STT → VIBE → PEDAGOGY → FEEDBACK → SYNTHESIZE
+EXTRACT → [VISION | CONTENT | STT | VIBE] (병렬) → PEDAGOGY → FEEDBACK → SYNTHESIZE
 """
 
 import time
 import traceback
+import threading
 import importlib.util
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable
@@ -107,6 +110,7 @@ class SharedContext:
     vibe_summary: Dict = field(default_factory=dict)
     vibe_timeline: List[Dict] = field(default_factory=list)
     audio_metrics: Dict = field(default_factory=dict)
+    discourse_result: Dict = field(default_factory=dict)  # v5.0
     pedagogy_result: Dict = field(default_factory=dict)
     feedback_result: Dict = field(default_factory=dict)
     master_report: Dict = field(default_factory=dict)
@@ -133,6 +137,7 @@ class AgentOrchestrator:
         self.pipeline_end: Optional[float] = None
         self.event_log: List[Dict] = []
         self._callbacks: List[Callable] = []
+        self._lock = threading.Lock()  # v5.0: 스레드 안전
 
         self._register_agents()
 
@@ -159,14 +164,15 @@ class AgentOrchestrator:
         self._callbacks.append(callback)
 
     def _emit(self, event_type: str, agent_name: str, data: Dict = None):
-        """이벤트 발행"""
+        """이벤트 발행 (스레드 안전)"""
         event = {
             "type": event_type,
             "agent": agent_name,
             "timestamp": datetime.now().isoformat(),
             "data": data or {},
         }
-        self.event_log.append(event)
+        with self._lock:
+            self.event_log.append(event)
         for cb in self._callbacks:
             try:
                 cb(event)
@@ -214,14 +220,23 @@ class AgentOrchestrator:
 
         self._emit("pipeline_start", "orchestrator", {"video": video_path})
 
-        # Phase 1: 리소스 추출
+        # Phase 1: 리소스 추출 (순차)
         self._run_agent("extractor", self._phase_extract, video_path, temp_dir)
 
-        # Phase 2: 병렬 분석 (Vision + Content + STT + Vibe)
-        self._run_agent("vision", self._phase_vision)
-        self._run_agent("content", self._phase_content)
-        self._run_agent("stt", self._phase_stt)
-        self._run_agent("vibe", self._phase_vibe)
+        # Phase 2: 진짜 병렬 실행 (v5.0) — Vision + Content + STT + Vibe
+        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="agent") as pool:
+            futures = {
+                pool.submit(self._run_agent, "vision", self._phase_vision): "vision",
+                pool.submit(self._run_agent, "content", self._phase_content): "content",
+                pool.submit(self._run_agent, "stt", self._phase_stt): "stt",
+                pool.submit(self._run_agent, "vibe", self._phase_vibe): "vibe",
+            }
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    future.result()
+                except Exception as e:
+                    self._emit("agent_error", name, {"error": str(e)})
 
         # Phase 3: 교육학 평가
         self._run_agent("pedagogy", self._phase_pedagogy)
@@ -342,6 +357,9 @@ class AgentOrchestrator:
 
     def _phase_pedagogy(self) -> Dict:
         """Phase 3: 교육학 이론 기반 평가"""
+        # v5.0: 발화 분석 먼저 실행
+        self._run_discourse_analysis()
+
         pg_mod = _load_module("pedagogy_agent", _AGENTS_DIR / "pedagogy_agent.py")
         PedagogyAgent = pg_mod.PedagogyAgent
 
@@ -351,9 +369,31 @@ class AgentOrchestrator:
             content_summary=self.context.content_summary,
             vibe_summary=self.context.vibe_summary,
             stt_result=self.context.stt_result,
+            discourse_result=self.context.discourse_result,  # v5.0
         )
         self.context.pedagogy_result = result
         return result
+
+    def _run_discourse_analysis(self):
+        """v5.0: 발화 내용 교육학적 분석 (교육학 평가 전 실행)"""
+        try:
+            da_mod = _load_module("discourse_analyzer", _AGENTS_DIR / "discourse_analyzer.py")
+            DiscourseAnalyzer = da_mod.DiscourseAnalyzer
+
+            analyzer = DiscourseAnalyzer()
+            stt = self.context.stt_result or {}
+            transcript = stt.get("transcript", "")
+            segments = stt.get("segments", [])
+            speaker_segments = stt.get("speaker_segments", [])
+
+            if transcript and len(transcript) > 20:
+                self.context.discourse_result = analyzer.analyze(
+                    transcript, segments, speaker_segments
+                )
+                self._emit("agent_done", "discourse", {"method": self.context.discourse_result.get("analysis_method", "none")})
+        except Exception as e:
+            self._emit("agent_error", "discourse", {"error": str(e)})
+            self.context.discourse_result = {}
 
     def _phase_feedback(self) -> Dict:
         """Phase 4: 맞춤형 피드백 생성"""
@@ -367,6 +407,7 @@ class AgentOrchestrator:
             content_summary=self.context.content_summary,
             vibe_summary=self.context.vibe_summary,
             stt_result=self.context.stt_result,
+            discourse_result=self.context.discourse_result,  # v5.0
         )
         self.context.feedback_result = result
         return result
@@ -398,6 +439,7 @@ class AgentOrchestrator:
         report_dict["pedagogy"] = self.context.pedagogy_result
         report_dict["feedback"] = self.context.feedback_result
         report_dict["stt"] = self.context.stt_result
+        report_dict["discourse"] = self.context.discourse_result  # v5.0
         report_dict["vision_summary"] = self.context.vision_summary
         report_dict["content_summary"] = self.context.content_summary
         report_dict["vibe_summary"] = self.context.vibe_summary

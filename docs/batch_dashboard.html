@@ -3,128 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GAIM Lab 배치 분석 결과 대시보드</title>
+    <title>GAIM Lab v5.0 배치 분석 대시보드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
             min-height: 100vh;
             color: #fff;
             padding: 20px;
         }
         .header {
             text-align: center;
-            padding: 30px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 20px;
+            padding: 40px 30px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 24px;
             margin-bottom: 30px;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
         }
         .header h1 {
             font-size: 2.5rem;
-            background: linear-gradient(90deg, #667eea, #764ba2);
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        .header .version {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
             margin-bottom: 10px;
         }
-        .header p { color: #a0a0a0; }
+        .header p { color: #8888aa; font-size: 0.95rem; }
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
             margin-bottom: 30px;
         }
         .stat-card {
-            background: rgba(255,255,255,0.08);
-            border-radius: 15px;
-            padding: 25px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 24px 20px;
             text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: transform 0.3s;
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
         }
-        .stat-card:hover { transform: translateY(-5px); }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(102,126,234,0.15);
+        }
         .stat-value {
-            font-size: 3rem;
-            font-weight: bold;
-            background: linear-gradient(90deg, #667eea, #764ba2);
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .stat-label { color: #a0a0a0; margin-top: 10px; }
+        .stat-label { color: #8888aa; margin-top: 6px; font-size: 0.85rem; }
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #a78bfa;
+            margin: 30px 0 16px;
+            padding-left: 4px;
+        }
         .charts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
         .chart-card {
-            background: rgba(255,255,255,0.08);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
         }
         .chart-card h3 {
-            margin-bottom: 20px;
-            color: #667eea;
+            margin-bottom: 16px;
+            color: #a78bfa;
+            font-weight: 600;
+            font-size: 1rem;
         }
         .chart-container { position: relative; height: 300px; }
         .table-container {
-            background: rgba(255,255,255,0.08);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
             overflow-x: auto;
+            margin-bottom: 30px;
         }
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 12px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-        th { color: #667eea; font-weight: 600; }
-        tr:hover { background: rgba(255,255,255,0.05); }
-        .grade-A { color: #4CAF50; font-weight: bold; }
-        .grade-B { color: #2196F3; font-weight: bold; }
-        .grade-C { color: #FFC107; font-weight: bold; }
-        .grade-D { color: #FF5722; font-weight: bold; }
+        th { color: #a78bfa; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+        tr:hover { background: rgba(255,255,255,0.04); }
+        .grade-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .grade-A { background: rgba(76,175,80,0.2); color: #4CAF50; }
+        .grade-B { background: rgba(33,150,243,0.2); color: #64b5f6; }
+        .grade-C { background: rgba(255,193,7,0.2); color: #FFC107; }
+        .grade-D { background: rgba(255,87,34,0.2); color: #FF5722; }
         .footer {
             text-align: center;
-            padding: 20px;
-            color: #666;
-            margin-top: 30px;
+            padding: 24px;
+            color: #555;
+            font-size: 0.85rem;
+        }
+        .footer a { color: #667eea; text-decoration: none; }
+        .v5-badge {
+            display: inline-block;
+            background: rgba(102,126,234,0.15);
+            color: #667eea;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 6px;
+            vertical-align: middle;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🎓 GAIM Lab 배치 분석 결과</h1>
-        <p>18개 강의 영상 7차원 평가 대시보드 | 생성일: 2026-02-06 20:58</p>
+        <span class="version">v5.0</span>
+        <h1>🎓 GAIM Lab 배치 분석 대시보드</h1>
+        <p>18개 강의 영상 7차원 AI 평가 | 생성: 2026-02-18 13:27 | 배치: batch_agents_20260218_112157</p>
     </div>
-    
+
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-value">18</div>
-            <div class="stat-label">📹 분석 영상 수</div>
+            <div class="stat-label">📹 분석 영상</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">77.1</div>
+            <div class="stat-value">77.4</div>
             <div class="stat-label">📊 평균 점수</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">84</div>
+            <div class="stat-value">83.2</div>
             <div class="stat-label">🏆 최고 점수</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">68</div>
+            <div class="stat-value">69.7</div>
             <div class="stat-label">📉 최저 점수</div>
         </div>
+        <div class="stat-card">
+            <div class="stat-value">13.5</div>
+            <div class="stat-label">📏 점수 범위</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">37</div>
+            <div class="stat-label">🗣️ 평균 학생 발화<span class="v5-badge">NEW</span></div>
+        </div>
     </div>
-    
+
+    <h2 class="section-title">📈 점수 분석</h2>
     <div class="charts-grid">
         <div class="chart-card">
-            <h3>📈 영상별 총점 분포</h3>
+            <h3>📊 영상별 총점 분포</h3>
             <div class="chart-container">
                 <canvas id="scoreChart"></canvas>
             </div>
@@ -136,395 +191,455 @@
             </div>
         </div>
         <div class="chart-card">
-            <h3>📊 차원별 평균 점수</h3>
+            <h3>📐 차원별 평균 점수</h3>
             <div class="chart-container">
                 <canvas id="dimensionChart"></canvas>
             </div>
         </div>
         <div class="chart-card">
-            <h3>🕸️ 차원별 성취율 (레이더 차트)</h3>
+            <h3>🕸️ 차원별 성취율 (레이더)</h3>
             <div class="chart-container">
                 <canvas id="radarChart"></canvas>
             </div>
         </div>
     </div>
-    
+
+    <h2 class="section-title">🗣️ 화자 분리 분석 <span class="v5-badge">v5.0 NEW</span></h2>
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>👩‍🏫 교사 발화 비율 vs 📊 총점</h3>
+            <div class="chart-container">
+                <canvas id="teacherRatioChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>🙋 학생 발화 횟수 vs 📊 총점</h3>
+            <div class="chart-container">
+                <canvas id="studentTurnsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title">📋 영상별 상세 결과</h2>
     <div class="table-container">
-        <h3 style="color: #667eea; margin-bottom: 20px;">📋 영상별 상세 결과</h3>
         <table>
             <thead>
                 <tr>
                     <th>영상</th>
                     <th>총점</th>
                     <th>등급</th>
-                    <th>수업전문성</th>
-                    <th>교수학습</th>
-                    <th>의사소통</th>
-                    <th>수업태도</th>
-                    <th>학생참여</th>
-                    <th>시간배분</th>
-                    <th>창의성</th>
+                    <th>수업전문성<br><small>/20</small></th>
+                    <th>교수학습<br><small>/20</small></th>
+                    <th>판서·언어<br><small>/15</small></th>
+                    <th>수업태도<br><small>/15</small></th>
+                    <th>학생참여<br><small>/15</small></th>
+                    <th>시간배분<br><small>/10</small></th>
+                    <th>창의성<br><small>/5</small></th>
+                    <th>교사비율<span class="v5-badge">NEW</span></th>
+                    <th>학생발화<span class="v5-badge">NEW</span></th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td>20251209_110545</td>
-                    <td><strong>84</strong></td>
-                    <td class="grade-A">A</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>13/15</td>
-                    <td>14/15</td>
-                    <td>12/15</td>
-                    <td>8/10</td>
-                    <td>4/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_141700</td>
+                    <td><strong>83.2</strong></td>
+                    <td><span class="grade-badge grade-A">A-</span></td>
+                    <td>16.5</td>
+                    <td>16.5</td>
+                    <td>12.5</td>
+                    <td>11.5</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>4.2</td>
+                    <td>90%</td>
+                    <td>38회</td>
                 </tr>
                 <tr>
-                    <td>20251209_102400</td>
-                    <td><strong>81</strong></td>
-                    <td class="grade-A">A</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>11/15</td>
-                    <td>8/10</td>
-                    <td>4/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_154506</td>
+                    <td><strong>81.2</strong></td>
+                    <td><span class="grade-badge grade-A">A-</span></td>
+                    <td>17.5</td>
+                    <td>14.5</td>
+                    <td>10.0</td>
+                    <td>12.0</td>
+                    <td>15</td>
+                    <td>8.5</td>
+                    <td>3.7</td>
+                    <td>93%</td>
+                    <td>27회</td>
                 </tr>
                 <tr>
-                    <td>20251209_151036</td>
-                    <td><strong>81</strong></td>
-                    <td class="grade-A">A</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>12/15</td>
-                    <td>14/15</td>
-                    <td>12/15</td>
-                    <td>8/10</td>
-                    <td>2/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_152725</td>
+                    <td><strong>80.2</strong></td>
+                    <td><span class="grade-badge grade-A">A-</span></td>
+                    <td>16.0</td>
+                    <td>16.5</td>
+                    <td>12.5</td>
+                    <td>11.5</td>
+                    <td>14.0</td>
+                    <td>6.5</td>
+                    <td>3.2</td>
+                    <td>96%</td>
+                    <td>10회</td>
                 </tr>
                 <tr>
-                    <td>20251209_160036</td>
-                    <td><strong>81</strong></td>
-                    <td class="grade-A">A</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>12/15</td>
-                    <td>7/10</td>
-                    <td>4/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_161202</td>
+                    <td><strong>80.2</strong></td>
+                    <td><span class="grade-badge grade-A">A-</span></td>
+                    <td>16.5</td>
+                    <td>15.5</td>
+                    <td>11.0</td>
+                    <td>11.5</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>3.7</td>
+                    <td>92%</td>
+                    <td>30회</td>
                 </tr>
                 <tr>
-                    <td>20251209_161202</td>
-                    <td><strong>81</strong></td>
-                    <td class="grade-A">A</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>12/15</td>
-                    <td>7/10</td>
-                    <td>4/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_104016</td>
+                    <td><strong>79.2</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>16.5</td>
+                    <td>15.5</td>
+                    <td>10.0</td>
+                    <td>11.5</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>3.7</td>
+                    <td>92%</td>
+                    <td>30회</td>
                 </tr>
                 <tr>
-                    <td>20251209_143455</td>
-                    <td><strong>80</strong></td>
-                    <td class="grade-A">A</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>11/15</td>
-                    <td>8/10</td>
-                    <td>3/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_105229</td>
+                    <td><strong>78.7</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>16.5</td>
+                    <td>14.0</td>
+                    <td>11.0</td>
+                    <td>11.5</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>3.7</td>
+                    <td>82%</td>
+                    <td>78회</td>
                 </tr>
                 <tr>
-                    <td>20251209_154506</td>
-                    <td><strong>80</strong></td>
-                    <td class="grade-A">A</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>12/15</td>
-                    <td>14/15</td>
-                    <td>11/15</td>
-                    <td>7/10</td>
-                    <td>3/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_142648</td>
+                    <td><strong>78.7</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>16.0</td>
+                    <td>16.5</td>
+                    <td>10.0</td>
+                    <td>11.5</td>
+                    <td>15</td>
+                    <td>6.5</td>
+                    <td>3.2</td>
+                    <td>85%</td>
+                    <td>33회</td>
                 </tr>
                 <tr>
-                    <td>20251209_105229</td>
-                    <td><strong>79</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>16/20</td>
-                    <td>15/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>12/15</td>
-                    <td>8/10</td>
-                    <td>3/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_143455</td>
+                    <td><strong>78.7</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>17.0</td>
+                    <td>14.0</td>
+                    <td>12.5</td>
+                    <td>10.0</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>3.2</td>
+                    <td>97%</td>
+                    <td>13회</td>
                 </tr>
                 <tr>
-                    <td>20251209_141700</td>
-                    <td><strong>79</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>12/15</td>
-                    <td>11/15</td>
-                    <td>12/15</td>
-                    <td>7/10</td>
-                    <td>4/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_102400</td>
+                    <td><strong>77.2</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>15.5</td>
+                    <td>13.5</td>
+                    <td>12.5</td>
+                    <td>10.0</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>3.7</td>
+                    <td>88%</td>
+                    <td>53회</td>
                 </tr>
                 <tr>
-                    <td>20251209_151833</td>
-                    <td><strong>79</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>17/20</td>
-                    <td>16/20</td>
-                    <td>10/15</td>
-                    <td>13/15</td>
-                    <td>12/15</td>
-                    <td>8/10</td>
-                    <td>3/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_110545</td>
+                    <td><strong>77.2</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>15.5</td>
+                    <td>15.5</td>
+                    <td>12.5</td>
+                    <td>10.0</td>
+                    <td>13.0</td>
+                    <td>7.0</td>
+                    <td>3.7</td>
+                    <td>100%</td>
+                    <td>1회</td>
                 </tr>
                 <tr>
-                    <td>20251209_104016</td>
-                    <td><strong>78</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>16/20</td>
-                    <td>15/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>12/15</td>
-                    <td>7/10</td>
-                    <td>3/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_151833</td>
+                    <td><strong>76.7</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>14.0</td>
+                    <td>14.5</td>
+                    <td>12.0</td>
+                    <td>11.5</td>
+                    <td>15</td>
+                    <td>6.5</td>
+                    <td>3.2</td>
+                    <td>77%</td>
+                    <td>77회</td>
                 </tr>
                 <tr>
-                    <td>20251209_144436</td>
-                    <td><strong>76</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>16/20</td>
-                    <td>15/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>10/15</td>
-                    <td>7/10</td>
-                    <td>3/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_160036</td>
+                    <td><strong>76.7</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>15.5</td>
+                    <td>15.0</td>
+                    <td>10.5</td>
+                    <td>10.0</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>3.7</td>
+                    <td>94%</td>
+                    <td>24회</td>
                 </tr>
                 <tr>
-                    <td>20251209_152725</td>
-                    <td><strong>76</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>16/20</td>
-                    <td>15/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>11/15</td>
-                    <td>6/10</td>
-                    <td>3/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_144436</td>
+                    <td><strong>76.2</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>14.0</td>
+                    <td>13.5</td>
+                    <td>11.0</td>
+                    <td>11.5</td>
+                    <td>15</td>
+                    <td>8.0</td>
+                    <td>3.2</td>
+                    <td>88%</td>
+                    <td>36회</td>
                 </tr>
                 <tr>
-                    <td>20251209_150303</td>
-                    <td><strong>73</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>16/20</td>
-                    <td>15/20</td>
-                    <td>12/15</td>
-                    <td>11/15</td>
-                    <td>10/15</td>
-                    <td>7/10</td>
-                    <td>2/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_151036</td>
+                    <td><strong>76.2</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>14.0</td>
+                    <td>14.5</td>
+                    <td>11.0</td>
+                    <td>11.5</td>
+                    <td>15</td>
+                    <td>6.5</td>
+                    <td>3.7</td>
+                    <td>91%</td>
+                    <td>26회</td>
                 </tr>
                 <tr>
-                    <td>20251209_140629</td>
-                    <td><strong>72</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>15/20</td>
-                    <td>14/20</td>
-                    <td>12/15</td>
-                    <td>13/15</td>
-                    <td>8/15</td>
-                    <td>7/10</td>
-                    <td>3/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_153522</td>
+                    <td><strong>76.2</strong></td>
+                    <td><span class="grade-badge grade-B">B+</span></td>
+                    <td>14.0</td>
+                    <td>15.0</td>
+                    <td>12.0</td>
+                    <td>10.0</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>3.2</td>
+                    <td>96%</td>
+                    <td>15회</td>
                 </tr>
                 <tr>
-                    <td>20251209_153522</td>
-                    <td><strong>72</strong></td>
-                    <td class="grade-B">B</td>
-                    <td>13/20</td>
-                    <td>15/20</td>
-                    <td>11/15</td>
-                    <td>13/15</td>
-                    <td>9/15</td>
-                    <td>7/10</td>
-                    <td>4/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_140629</td>
+                    <td><strong>74.2</strong></td>
+                    <td><span class="grade-badge grade-B">B</span></td>
+                    <td>15.5</td>
+                    <td>12.0</td>
+                    <td>10.0</td>
+                    <td>11.0</td>
+                    <td>15</td>
+                    <td>7.0</td>
+                    <td>3.7</td>
+                    <td>63%</td>
+                    <td>135회</td>
                 </tr>
                 <tr>
-                    <td>20251209_100926</td>
-                    <td><strong>68</strong></td>
-                    <td class="grade-C">C</td>
-                    <td>16/20</td>
-                    <td>14/20</td>
-                    <td>8/15</td>
-                    <td>13/15</td>
-                    <td>10/15</td>
-                    <td>5/10</td>
-                    <td>2/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_100926</td>
+                    <td><strong>72.2</strong></td>
+                    <td><span class="grade-badge grade-B">B</span></td>
+                    <td>13.0</td>
+                    <td>13.0</td>
+                    <td>9.5</td>
+                    <td>10.0</td>
+                    <td>15</td>
+                    <td>8.5</td>
+                    <td>3.2</td>
+                    <td>91%</td>
+                    <td>30회</td>
                 </tr>
                 <tr>
-                    <td>20251209_142648</td>
-                    <td><strong>68</strong></td>
-                    <td class="grade-C">C</td>
-                    <td>15/20</td>
-                    <td>14/20</td>
-                    <td>10/15</td>
-                    <td>12/15</td>
-                    <td>9/15</td>
-                    <td>6/10</td>
-                    <td>2/5</td>
+                    <td style="text-align:left; font-weight:500;">20251209_150303</td>
+                    <td><strong>69.7</strong></td>
+                    <td><span class="grade-badge grade-B">B-</span></td>
+                    <td>14.0</td>
+                    <td>13.5</td>
+                    <td>10.0</td>
+                    <td>10.0</td>
+                    <td>12.5</td>
+                    <td>6.5</td>
+                    <td>3.2</td>
+                    <td>98%</td>
+                    <td>4회</td>
                 </tr>
             </tbody>
         </table>
     </div>
-    
+
     <div class="footer">
-        <p>🔬 GAIM Lab - Gemini AI 기반 수업 분석 시스템</p>
+        <p>🔬 GAIM Lab v5.0 — Gemini AI 기반 수업 분석 시스템 |
+        <a href="https://github.com/Ginue-AI/GAIM_Lab">GitHub</a></p>
     </div>
-    
+
     <script>
-        // 영상별 점수 차트
-        const scoreCtx = document.getElementById('scoreChart').getContext('2d');
-        new Chart(scoreCtx, {
+        Chart.defaults.color = '#8888aa';
+        Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+        // 1. 영상별 점수 바 차트
+        new Chart(document.getElementById('scoreChart'), {
             type: 'bar',
             data: {
-                labels: ["20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209", "20251209"],
+                labels: ["141700", "154506", "152725", "161202", "104016", "105229", "142648", "143455", "102400", "110545", "151833", "160036", "144436", "151036", "153522", "140629", "100926", "150303"],
                 datasets: [{
                     label: '총점',
-                    data: [84, 81, 81, 81, 81, 80, 80, 79, 79, 79, 78, 76, 76, 73, 72, 72, 68, 68],
-                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                    borderColor: 'rgba(102, 126, 234, 1)',
-                    borderWidth: 1
+                    data: [83.2, 81.2, 80.2, 80.2, 79.2, 78.7, 78.7, 78.7, 77.2, 77.2, 76.7, 76.7, 76.2, 76.2, 76.2, 74.2, 72.2, 69.7],
+                    backgroundColor: ["rgba(76,175,80,0.6)", "rgba(76,175,80,0.6)", "rgba(76,175,80,0.6)", "rgba(76,175,80,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(33,150,243,0.6)", "rgba(255,193,7,0.6)"],
+                    borderRadius: 6,
+                    borderSkipped: false
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        grid: { color: 'rgba(255,255,255,0.1)' },
-                        ticks: { color: '#a0a0a0' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#a0a0a0', maxRotation: 45 }
-                    }
+                    y: { beginAtZero: true, max: 100, ticks: { stepSize: 10 } },
+                    x: { ticks: { maxRotation: 45, font: { size: 10 } } }
                 }
             }
         });
-        
-        // 등급 분포 파이 차트
-        const gradeCtx = document.getElementById('gradeChart').getContext('2d');
-        new Chart(gradeCtx, {
+
+        // 2. 등급 분포 도넛 차트
+        new Chart(document.getElementById('gradeChart'), {
             type: 'doughnut',
             data: {
-                labels: ['A등급', 'B등급', 'C등급'],
+                labels: ["B", "B+", "A-", "B-"],
                 datasets: [{
-                    data: [7, 9, 2],
-                    backgroundColor: ['#4CAF50', '#2196F3', '#FFC107'],
+                    data: [2, 11, 4, 1],
+                    backgroundColor: ["#2196F3", "#2196F3", "#4CAF50", "#2196F3"],
                     borderWidth: 0
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { color: '#fff' }
-                    }
+                    legend: { position: 'bottom', labels: { padding: 16 } }
                 }
             }
         });
-        
-        // 차원별 평균 점수 차트
-        const dimCtx = document.getElementById('dimensionChart').getContext('2d');
-        new Chart(dimCtx, {
+
+        // 3. 차원별 평균 수평 바 차트
+        new Chart(document.getElementById('dimensionChart'), {
             type: 'bar',
             data: {
                 labels: ["\uc218\uc5c5 \uc804\ubb38\uc131", "\uad50\uc218\ud559\uc2b5 \ubc29\ubc95", "\ud310\uc11c \ubc0f \uc5b8\uc5b4", "\uc218\uc5c5 \ud0dc\ub3c4", "\ud559\uc0dd \ucc38\uc5ec", "\uc2dc\uac04 \ubc30\ubd84", "\ucc3d\uc758\uc131"],
                 datasets: [{
                     label: '평균 점수',
-                    data: [16.2, 15.3, 11.6, 12.9, 10.9, 7.1, 3.1],
+                    data: [15.4, 14.6, 11.1, 10.9, 14.7, 7.1, 3.5],
                     backgroundColor: [
-                        'rgba(255, 99, 132, 0.6)',
-                        'rgba(54, 162, 235, 0.6)',
-                        'rgba(255, 206, 86, 0.6)',
-                        'rgba(75, 192, 192, 0.6)',
-                        'rgba(153, 102, 255, 0.6)',
-                        'rgba(255, 159, 64, 0.6)',
-                        'rgba(199, 199, 199, 0.6)'
+                        'rgba(255,99,132,0.5)', 'rgba(54,162,235,0.5)',
+                        'rgba(255,206,86,0.5)', 'rgba(75,192,192,0.5)',
+                        'rgba(153,102,255,0.5)', 'rgba(255,159,64,0.5)',
+                        'rgba(199,199,199,0.5)'
                     ],
-                    borderWidth: 1
+                    borderRadius: 6, borderSkipped: false
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 indexAxis: 'y',
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.1)' },
-                        ticks: { color: '#a0a0a0' }
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: { color: '#a0a0a0' }
-                    }
-                }
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true } }
             }
         });
-        
-        // 레이더 차트 (차원별 성취율)
-        const radarCtx = document.getElementById('radarChart').getContext('2d');
-        new Chart(radarCtx, {
+
+        // 4. 레이더 차트
+        new Chart(document.getElementById('radarChart'), {
             type: 'radar',
             data: {
                 labels: ["\uc218\uc5c5 \uc804\ubb38\uc131", "\uad50\uc218\ud559\uc2b5 \ubc29\ubc95", "\ud310\uc11c \ubc0f \uc5b8\uc5b4", "\uc218\uc5c5 \ud0dc\ub3c4", "\ud559\uc0dd \ucc38\uc5ec", "\uc2dc\uac04 \ubc30\ubd84", "\ucc3d\uc758\uc131"],
                 datasets: [{
                     label: '평균 성취율 (%)',
-                    data: [81.1, 76.7, 77.0, 85.9, 72.6, 71.1, 62.2],
-                    backgroundColor: 'rgba(102, 126, 234, 0.3)',
-                    borderColor: 'rgba(102, 126, 234, 1)',
+                    data: [77.1, 73.1, 74.3, 72.8, 98.0, 70.8, 70.1],
+                    backgroundColor: 'rgba(102,126,234,0.2)',
+                    borderColor: 'rgba(102,126,234,1)',
                     borderWidth: 2,
-                    pointBackgroundColor: 'rgba(102, 126, 234, 1)'
+                    pointBackgroundColor: 'rgba(102,126,234,1)'
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { color: '#fff' }
-                    }
-                },
+                responsive: true, maintainAspectRatio: false,
                 scales: {
                     r: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: { color: '#a0a0a0', backdropColor: 'transparent' },
-                        grid: { color: 'rgba(255,255,255,0.1)' },
-                        pointLabels: { color: '#fff' }
+                        beginAtZero: true, max: 100,
+                        ticks: { backdropColor: 'transparent' },
+                        pointLabels: { font: { size: 11 } }
                     }
+                }
+            }
+        });
+
+        // 5. v5.0: 교사 발화 비율 vs 총점 (Scatter)
+        new Chart(document.getElementById('teacherRatioChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: '교사 발화 비율 vs 총점',
+                    data: [{"x": 90.7, "y": 72.2}, {"x": 88.1, "y": 77.2}, {"x": 92.3, "y": 79.2}, {"x": 82.3, "y": 78.7}, {"x": 99.7, "y": 77.2}, {"x": 62.8, "y": 74.2}, {"x": 89.9, "y": 83.2}, {"x": 85.1, "y": 78.7}, {"x": 96.7, "y": 78.7}, {"x": 87.6, "y": 76.2}, {"x": 98.1, "y": 69.7}, {"x": 91.1, "y": 76.2}, {"x": 77.2, "y": 76.7}, {"x": 96.5, "y": 80.2}, {"x": 96.1, "y": 76.2}, {"x": 92.8, "y": 81.2}, {"x": 94.0, "y": 76.7}, {"x": 92.3, "y": 80.2}],
+                    backgroundColor: 'rgba(255,99,132,0.6)',
+                    borderColor: 'rgba(255,99,132,1)',
+                    pointRadius: 8,
+                    pointHoverRadius: 12
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { title: { display: true, text: '교사 발화 비율 (%)' } },
+                    y: { title: { display: true, text: '총점' }, min: 60, max: 90 }
+                }
+            }
+        });
+
+        // 6. v5.0: 학생 발화 횟수 vs 총점 (Scatter)
+        new Chart(document.getElementById('studentTurnsChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: '학생 발화 횟수 vs 총점',
+                    data: [{"x": 30, "y": 72.2}, {"x": 53, "y": 77.2}, {"x": 30, "y": 79.2}, {"x": 78, "y": 78.7}, {"x": 1, "y": 77.2}, {"x": 135, "y": 74.2}, {"x": 38, "y": 83.2}, {"x": 33, "y": 78.7}, {"x": 13, "y": 78.7}, {"x": 36, "y": 76.2}, {"x": 4, "y": 69.7}, {"x": 26, "y": 76.2}, {"x": 77, "y": 76.7}, {"x": 10, "y": 80.2}, {"x": 15, "y": 76.2}, {"x": 27, "y": 81.2}, {"x": 24, "y": 76.7}, {"x": 30, "y": 80.2}],
+                    backgroundColor: 'rgba(54,162,235,0.6)',
+                    borderColor: 'rgba(54,162,235,1)',
+                    pointRadius: 8,
+                    pointHoverRadius: 12
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { title: { display: true, text: '학생 발화 횟수' } },
+                    y: { title: { display: true, text: '총점' }, min: 60, max: 90 }
                 }
             }
         });
