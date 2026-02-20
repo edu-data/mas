@@ -71,8 +71,8 @@ cd GAIM_Lab/frontend && npm install && npm run dev
 
 | 링크 | 설명 |
 | ---- | ---- |
-| 🏠 **React 홈페이지 (NEW)** | `localhost:5173/` — 글라스모피즘 랜딩 페이지 |
-| 📊 **React 대시보드 (NEW)** | `localhost:5173/dashboard` — 위젯 대시보드 |
+| 🏠 [**React 홈페이지 (NEW)**](https://edu-data.github.io/GAIM_Lab/app/) | 글라스모피즘 랜딩 페이지 |
+| 📊 [**React 대시보드 (NEW)**](https://edu-data.github.io/GAIM_Lab/app/#/dashboard) | 위젯 대시보드 |
 | [MAS 홈페이지](https://edu-data.github.io/mas/mas-index.html) | 시스템 소개 (GitHub Pages) |
 | [MAS 대시보드](https://edu-data.github.io/mas/mas-dashboard.html) | 분석 결과 시각화 |
 | [GAIM Lab 소스코드](https://github.com/edu-data/GAIM_Lab) | 핵심 시스템 레포지토리 |
