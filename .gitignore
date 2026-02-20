@@ -1,0 +1,9 @@
+# Ignore everything
+*
+
+# But not these
+!.gitignore
+!.gitmodules
+!README.md
+!GINUE_2035_발전계획/
+!GINUE_2035_발전계획/**
